@@ -445,6 +445,13 @@
         color: var(--warn);
       }
 
+      .inline-warning {
+        margin-top: 8px;
+        color: var(--warn);
+        font-size: 12px;
+        line-height: 1.35;
+      }
+
       @media (max-width: 980px) {
         .header-inner {
           grid-template-columns: 1fr;
@@ -565,7 +572,7 @@
             </div>
 
             <p class="note">
-              Si subes SVG, se conserva como vector nativo, todo el dibujo visible sale morado y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.
+              Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.
             </p>
           </section>
         </aside>
@@ -691,6 +698,53 @@
         return false;
       }
 
+      function parseCssPaint(value) {
+        const color = value.trim().toLowerCase();
+        if (color === "black") return { r: 0, g: 0, b: 0, a: 255 };
+        if (color === "gray" || color === "grey") return { r: 128, g: 128, b: 128, a: 255 };
+
+        const hex = color.match(/^#([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/i);
+        if (hex) {
+          const raw = hex[1].length === 3 || hex[1].length === 4
+            ? hex[1].split("").map((char) => char + char).join("")
+            : hex[1];
+          return {
+            r: Number.parseInt(raw.slice(0, 2), 16),
+            g: Number.parseInt(raw.slice(2, 4), 16),
+            b: Number.parseInt(raw.slice(4, 6), 16),
+            a: raw.length === 8 ? Number.parseInt(raw.slice(6, 8), 16) : 255,
+          };
+        }
+
+        const rgb = color.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)$/);
+        if (rgb) {
+          return {
+            r: Number(rgb[1]),
+            g: Number(rgb[2]),
+            b: Number(rgb[3]),
+            a: rgb[4] === undefined ? 255 : Math.round(Number(rgb[4]) * 255),
+          };
+        }
+
+        return null;
+      }
+
+      function purpleToneForCssPaint(value) {
+        const paint = parseCssPaint(value);
+        if (!paint || paint.a === 0) return TARGET.hex;
+        const luminance = Math.max(0, Math.min(1, (0.2126 * paint.r + 0.7152 * paint.g + 0.0722 * paint.b) / 255));
+        if (luminance <= 0.06) return TARGET.hex;
+        const mix = Math.min(0.88, luminance * 0.92);
+        const r = Math.round(TARGET.r + (255 - TARGET.r) * mix);
+        const g = Math.round(TARGET.g + (255 - TARGET.g) * mix);
+        const b = Math.round(TARGET.b + (255 - TARGET.b) * mix);
+        return rgbToHex(r, g, b);
+      }
+
+      function rgbToHex(r, g, b) {
+        return `#${[r, g, b].map((value) => value.toString(16).padStart(2, "0")).join("")}`;
+      }
+
       function recolorCssDeclarations(styleText) {
         let matches = 0;
         const updated = styleText.replace(
@@ -700,7 +754,7 @@
             const cleanValue = value.replace(/\s*!important\s*$/i, "").trim();
             if (!isBlackCssColor(cleanValue)) return full;
             matches += 1;
-            return `${prefix}${property}${TARGET.hex}${important ? " !important" : ""}`;
+            return `${prefix}${property}${purpleToneForCssPaint(cleanValue)}${important ? " !important" : ""}`;
           },
         );
         return { text: updated, matches };
@@ -713,7 +767,7 @@
           (full, prefix, property, value) => {
             if (!isBlackCssColor(value)) return full;
             matches += 1;
-            return `${prefix}${property}${TARGET.hex}`;
+            return `${prefix}${property}${purpleToneForCssPaint(value)}`;
           },
         );
         return { text: updated, matches };
@@ -728,7 +782,7 @@
             const cleanValue = value.replace(/\s*!important\s*$/i, "").trim();
             if (isPreservedCssPaint(cleanValue) || /^url\(/i.test(cleanValue)) return full;
             matches += 1;
-            return `${prefix}${property}${TARGET.hex}${important ? " !important" : ""}`;
+            return `${prefix}${property}${purpleToneForCssPaint(cleanValue)}${important ? " !important" : ""}`;
           },
         );
 
@@ -752,6 +806,7 @@
 
       async function svgFromFile(file) {
         const originalSvg = await file.text();
+        const sourceAnalysis = analyzeSvgSource(originalSvg, file.name);
         const parser = new DOMParser();
         const documentSvg = parser.parseFromString(originalSvg, "image/svg+xml");
         const parserError = documentSvg.querySelector("parsererror");
@@ -768,7 +823,22 @@
           width: result.width,
           height: result.height,
           changed: result.changed,
+          warning: sourceAnalysis.warning,
         }];
+      }
+
+      function analyzeSvgSource(svgText, fileName) {
+        const visiblePaints = [...svgText.matchAll(/\b(?:fill|stroke|color)\s*(?::|=)\s*["']?([^;"'>\s]+)/gi)]
+          .map((match) => match[1].trim().toLowerCase())
+          .filter((paint) => !isPreservedCssPaint(paint) && !/^url\(/i.test(paint));
+        const uniquePaints = new Set(visiblePaints);
+        const onlyBasePurple = uniquePaints.size === 1 && uniquePaints.has(TARGET.hex);
+        const likelyConverted = /_morada|\bmorada\b/i.test(fileName) || (visiblePaints.length > 8 && onlyBasePurple);
+        return {
+          warning: likelyConverted
+            ? "Este SVG parece ya procesado. Para conservar tonos morados claros/oscuros, sube el SVG original, no un archivo _morada exportado antes."
+            : "",
+        };
       }
 
       function convertSvgDocument(documentSvg) {
@@ -781,13 +851,13 @@
             if (!node.hasAttribute(attribute)) continue;
             const value = node.getAttribute(attribute);
             if (value && isBlackCssColor(value)) {
-              node.setAttribute(attribute, TARGET.hex);
+              node.setAttribute(attribute, purpleToneForCssPaint(value));
               changed += 1;
             } else if (value && value.trim().toLowerCase() === "currentcolor" && !hasDeclaredPaint(node, "color", documentSvg) && !hasAncestorDeclaredPaint(node, "color", documentSvg)) {
               node.setAttribute(attribute, TARGET.hex);
               changed += 1;
             } else if (value && !isPreservedCssPaint(value) && !/^url\(/i.test(value.trim())) {
-              node.setAttribute(attribute, TARGET.hex);
+              node.setAttribute(attribute, purpleToneForCssPaint(value));
               changed += 1;
             }
           }
@@ -1097,6 +1167,7 @@
           height: page.height,
           changed: page.changed,
           blackPixels: page.changed,
+          warning: page.warning,
           element: null,
         };
         item.element = renderItem(item);
@@ -1151,13 +1222,20 @@
         card.querySelector(".file-title strong").textContent = item.name;
         const width = item.kind === "svg" ? item.width : item.original.width;
         const height = item.kind === "svg" ? item.height : item.original.height;
-        card.querySelector(".file-title span").textContent = item.kind === "svg"
+        const meta = card.querySelector(".file-title span");
+        meta.textContent = item.kind === "svg"
           ? `${width} x ${height} - SVG vectorial`
           : `${width} x ${height}px`;
+        if (item.warning) {
+          const warning = document.createElement("div");
+          warning.className = "inline-warning";
+          warning.textContent = item.warning;
+          meta.after(warning);
+        }
         const paneStats = card.querySelectorAll(".pane-label span:last-child");
         paneStats[0].textContent = "Original";
         paneStats[1].textContent = item.kind === "svg"
-          ? `${item.changed.toLocaleString("es")} atributos/estilos negros`
+          ? `${item.changed.toLocaleString("es")} elementos ajustados`
           : `${item.processed.blackPixels.toLocaleString("es")} px negros`;
         const before = item.kind === "svg" ? previewFromSvg(item.originalSvg) : cloneCanvas(item.original);
         const after = item.kind === "svg" ? previewFromSvg(item.convertedSvg) : cloneCanvas(item.processed.converted);
