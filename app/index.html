@@ -1266,6 +1266,11 @@
         return false;
       }
 
+      function isWhiteCssPaint(value) {
+        const color = parseCssPaint(value);
+        return !!color && color.a > 0 && color.r >= 248 && color.g >= 248 && color.b >= 248;
+      }
+
       function parseCssPaint(value) {
         const color = value.trim().toLowerCase();
         if (color === "black") return { r: 0, g: 0, b: 0, a: 255 };
@@ -1725,7 +1730,7 @@
         }
         for (const image of [...svg.querySelectorAll("image")]) image.remove();
         keepPdfSvgBlack(documentSvg);
-        normalizePdfSvgStrokes(documentSvg);
+        removeWhiteKnockoutStrokes(documentSvg);
         return new XMLSerializer().serializeToString(documentSvg);
       }
 
@@ -1744,17 +1749,19 @@
         }
       }
 
-      function normalizePdfSvgStrokes(documentSvg) {
+      function removeWhiteKnockoutStrokes(documentSvg) {
         for (const node of [documentSvg.documentElement, ...documentSvg.querySelectorAll("*")]) {
-          if (node.hasAttribute("stroke") && (node.getAttribute("stroke") || "").trim().toLowerCase() !== "none") {
-            node.setAttribute("stroke-width", "0.5pt");
-            node.setAttribute("vector-effect", "non-scaling-stroke");
+          const fill = node.getAttribute("fill") || "";
+          const stroke = node.getAttribute("stroke") || "";
+          if (fill && stroke && isWhiteCssPaint(fill) && isWhiteCssPaint(stroke)) {
+            node.setAttribute("stroke", "none");
           }
           if (node.hasAttribute("style")) {
             let style = node.getAttribute("style") || "";
-            style = style.replace(/stroke-width\s*:\s*[^;]+/gi, "stroke-width: 0.5pt");
-            if (/stroke\s*:\s*(?!none\b)[^;]+/i.test(style) && !/vector-effect\s*:/i.test(style)) {
-              style += "; vector-effect: non-scaling-stroke";
+            const fillMatch = style.match(/(?:^|;)\s*fill\s*:\s*([^;]+)/i);
+            const strokeMatch = style.match(/(?:^|;)\s*stroke\s*:\s*([^;]+)/i);
+            if (fillMatch && strokeMatch && isWhiteCssPaint(fillMatch[1]) && isWhiteCssPaint(strokeMatch[1])) {
+              style = style.replace(/(^|;)(\s*stroke\s*:\s*)[^;]+/i, "$1$2none");
             }
             node.setAttribute("style", style);
           }
@@ -1771,7 +1778,7 @@
           ctm: [1, 0, 0, 1, 0, 0],
           stroke: "#000",
           fill: "#000",
-          lineWidth: "0.5pt",
+          lineWidth: 1,
           currentPath: "",
         };
 
@@ -1782,7 +1789,9 @@
             ? `fill="none" stroke="${state.stroke}" stroke-width="0.5pt" vector-effect="non-scaling-stroke"`
             : paint === "fill"
               ? `fill="${state.fill}" stroke="none"`
-              : `fill="${state.fill}" stroke="${state.stroke}" stroke-width="0.5pt" vector-effect="non-scaling-stroke"`;
+              : isWhiteCssPaint(state.fill) && isWhiteCssPaint(state.stroke)
+                ? `fill="${state.fill}" stroke="none"`
+                : `fill="${state.fill}" stroke="${state.stroke}" stroke-width="0.5pt" vector-effect="non-scaling-stroke"`;
           paths.push(`<path d="${state.currentPath.trim()}" ${attrs} transform="${matrixToSvg(transform)}"/>`);
           state.currentPath = "";
         };
@@ -1833,7 +1842,7 @@
             return;
           }
           if (fn === ops.setLineWidth) {
-            state.lineWidth = "0.5pt";
+            state.lineWidth = Number(args[0]) || 1;
             return;
           }
           if (fn === ops.constructPath) {
