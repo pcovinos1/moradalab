@@ -2058,6 +2058,7 @@
 
       function svgForItem(item) {
         if (item.kind === "svg") return item.convertedSvg;
+        if (item.kind === "pdf-color") return item.convertedSvg;
         if (item.kind === "pdf-svg") return item.vectorSvg;
 
         const width = item.original.width;
@@ -2281,6 +2282,27 @@
         return item;
       }
 
+      function makePdfColorItem(label, sourceCanvas, vectorSvg) {
+        const convertedSvg = svgTextToMorada(vectorSvg);
+        const editableNodes = countEditableSvgNodes(convertedSvg);
+        const item = {
+          id: uid(),
+          kind: "pdf-color",
+          name: label,
+          original: sourceCanvas,
+          vectorSvg,
+          convertedSvg,
+          processed: { converted: sourceCanvas, blackPixels: editableNodes },
+          blackPixels: editableNodes,
+          warning: editableNodes
+            ? ""
+            : "Este PDF no trae vectores editables suficientes. Para que salga nitido, usa el PDF vectorial original, no una imagen escaneada.",
+          element: null,
+        };
+        item.element = renderItem(item);
+        return item;
+      }
+
       function makePdfWebpItem(page) {
         const item = {
           id: uid(),
@@ -2322,6 +2344,14 @@
         image.alt = "";
         image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgText)}`;
         return image;
+      }
+
+      function svgTextToMorada(svgText) {
+        const parser = new DOMParser();
+        const documentSvg = parser.parseFromString(svgText, "image/svg+xml");
+        const parserError = documentSvg.querySelector("parsererror");
+        if (parserError || documentSvg.documentElement.tagName.toLowerCase() !== "svg") return svgText;
+        return convertSvgDocument(documentSvg).svgText;
       }
 
       function renderItem(item) {
@@ -2370,6 +2400,8 @@
         const meta = card.querySelector(".file-title span");
         meta.textContent = item.kind === "svg"
           ? `${width} x ${height} - SVG vectorial`
+          : item.kind === "pdf-color"
+            ? `${width} x ${height}px - PDF vectorial a color`
           : item.kind === "pdf-svg"
             ? `${width} x ${height}px - PDF vectorial editable`
             : item.kind === "pdf-webp"
@@ -2385,6 +2417,8 @@
         paneStats[0].textContent = item.kind === "pdf-svg" || item.kind === "pdf-webp" ? "PDF" : "Original";
         paneStats[1].textContent = item.kind === "svg"
           ? `${item.changed.toLocaleString("es")} elementos ajustados`
+          : item.kind === "pdf-color"
+            ? `${item.blackPixels.toLocaleString("es")} vectores morados`
           : item.kind === "pdf-svg"
             ? `${item.blackPixels.toLocaleString("es")} vectores/textos`
             : item.kind === "pdf-webp"
@@ -2393,6 +2427,8 @@
         const before = item.kind === "svg" ? previewFromSvg(item.originalSvg) : cloneCanvas(item.original);
         const after = item.kind === "svg"
           ? previewFromSvg(item.convertedSvg)
+          : item.kind === "pdf-color"
+            ? previewFromSvg(item.convertedSvg)
           : item.kind === "pdf-svg"
             ? previewFromSvg(item.vectorSvg)
             : item.kind === "pdf-webp"
@@ -2420,7 +2456,7 @@
       }
 
       function makeThumbnail(item) {
-        if (item.kind === "svg") return previewFromSvg(item.convertedSvg);
+        if (item.kind === "svg" || item.kind === "pdf-color") return previewFromSvg(item.convertedSvg);
         return cloneCanvas(item.original);
       }
 
@@ -2475,8 +2511,10 @@
                 : state.mode === "pdf-webp"
                   ? makePdfWebpItem(page)
                   : page.kind === "svg"
-                  ? makeSvgItem(page)
-                  : makeItem(page.label, page.canvas);
+                    ? makeSvgItem(page)
+                    : page.vectorSvg
+                      ? makePdfColorItem(page.label, page.canvas, page.vectorSvg)
+                      : makeItem(page.label, page.canvas);
               state.items.push(item);
               if (!state.selectedId) state.selectedId = item.id;
               els.fileList.append(item.element);
@@ -2605,6 +2643,7 @@
 
       function documentMeta(item) {
         if (item.kind === "pdf-webp") return `Página ${item.pageNumber} de ${item.pages}`;
+        if (item.kind === "pdf-color") return "PDF vectorial convertido a color";
         if (item.kind === "pdf-svg") return "PDF convertido a SVG editable";
         if (item.kind === "svg") return "SVG vectorial";
         return "Plano convertido a color";
@@ -2619,6 +2658,8 @@
         const before = item.kind === "svg" ? previewFromSvg(item.originalSvg) : cloneCanvas(item.original);
         const after = item.kind === "svg"
           ? previewFromSvg(item.convertedSvg)
+          : item.kind === "pdf-color"
+            ? previewFromSvg(item.convertedSvg)
           : item.kind === "pdf-svg"
             ? previewFromSvg(item.vectorSvg)
             : item.kind === "pdf-webp"
@@ -2676,6 +2717,9 @@
           item.element.remove();
           if (item.kind === "pdf-svg") {
             return makePdfSvgItem(item.name, item.original, item.vectorSvg);
+          }
+          if (item.kind === "pdf-color") {
+            return makePdfColorItem(item.name, item.original, item.vectorSvg || item.convertedSvg);
           }
           if (item.kind === "pdf-webp") {
             return makePdfWebpItem({
