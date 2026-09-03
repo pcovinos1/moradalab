@@ -903,13 +903,13 @@
         height: min(72vh, 780px);
         background: #f7f7f8;
         padding: 18px;
+        display: grid;
+        place-items: center;
       }
 
       .compare {
         --split: 50%;
         position: relative;
-        width: max-content;
-        max-width: 100%;
         margin: 0 auto;
         background: #fff;
       }
@@ -917,8 +917,9 @@
       .compare-base,
       .compare-result {
         display: block;
-        max-width: min(100%, 1180px);
-        height: auto;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
         box-shadow: 0 1px 2px rgba(24, 24, 27, 0.14);
       }
 
@@ -2399,19 +2400,22 @@
               : cloneCanvas(item.processed.converted);
         card.querySelector('[data-slot="before"]').append(before);
         card.querySelector('[data-slot="after"]').append(after);
-        card.querySelector("[data-export-label]").textContent = item.kind === "pdf-webp" ? "WEBP" : "SVG";
+        const exportLabel = card.querySelector("[data-export-label]");
+        if (exportLabel) exportLabel.textContent = item.kind === "pdf-webp" ? "WEBP" : "SVG";
         card.addEventListener("click", () => selectItem(item.id));
-        card.querySelector('[data-action="export"]').addEventListener("click", () => {
-          exportItem(item);
-        });
-        card.querySelector('[data-action="remove"]').addEventListener("click", () => {
-          disposeItem(item);
-          state.items = state.items.filter((candidate) => candidate.id !== item.id);
-          if (state.selectedId === item.id) state.selectedId = state.items[0]?.id || null;
-          card.remove();
-          refreshStatus();
-          updateViewer();
-        });
+        const exportButton = card.querySelector('[data-action="export"]');
+        if (exportButton) exportButton.addEventListener("click", () => exportItem(item));
+        const removeButton = card.querySelector('[data-action="remove"]');
+        if (removeButton) {
+          removeButton.addEventListener("click", () => {
+            disposeItem(item);
+            state.items = state.items.filter((candidate) => candidate.id !== item.id);
+            if (state.selectedId === item.id) state.selectedId = state.items[0]?.id || null;
+            card.remove();
+            refreshStatus();
+            updateViewer();
+          });
+        }
         return card;
       }
 
@@ -2609,6 +2613,9 @@
       function renderCompare(item) {
         const wrap = document.createElement("div");
         wrap.className = "compare";
+        const width = item.kind === "svg" ? item.width : item.original.width;
+        const height = item.kind === "svg" ? item.height : item.original.height;
+        if (width && height) wrap.style.aspectRatio = `${width} / ${height}`;
         const before = item.kind === "svg" ? previewFromSvg(item.originalSvg) : cloneCanvas(item.original);
         const after = item.kind === "svg"
           ? previewFromSvg(item.convertedSvg)
@@ -2626,7 +2633,31 @@
         `);
         const range = wrap.querySelector(".compare-range");
         range.addEventListener("input", () => wrap.style.setProperty("--split", `${range.value}%`));
+        fitCompareToStage(wrap, width, height);
         return wrap;
+      }
+
+      function fitCompareToStage(wrap, sourceWidth, sourceHeight) {
+        if (!sourceWidth || !sourceHeight) return;
+        const resize = () => {
+          const stage = wrap.parentElement;
+          if (!stage) return;
+          const availableWidth = Math.max(160, stage.clientWidth - 36);
+          const availableHeight = Math.max(160, stage.clientHeight - 36);
+          const ratio = sourceWidth / sourceHeight;
+          const fittedWidth = Math.min(availableWidth, availableHeight * ratio);
+          wrap.style.width = `${Math.round(fittedWidth)}px`;
+          wrap.style.height = `${Math.round(fittedWidth / ratio)}px`;
+        };
+        requestAnimationFrame(resize);
+        if ("ResizeObserver" in window) {
+          const observer = new ResizeObserver(resize);
+          requestAnimationFrame(() => {
+            if (wrap.parentElement) observer.observe(wrap.parentElement);
+          });
+        } else {
+          window.addEventListener("resize", resize);
+        }
       }
 
       function renderPageThumb(item) {
