@@ -531,6 +531,503 @@
           flex: 1;
         }
       }
+
+      /* MORADALAB redesign layer */
+      :root {
+        --ink: #18181b;
+        --muted: #71717a;
+        --line: #e8e8ec;
+        --panel: #ffffff;
+        --soft: #fafafa;
+        --accent: #4a1768;
+        --conversion: #5c2483;
+        --selected: #f5eef8;
+        --shadow: 0 12px 30px rgba(24, 24, 27, 0.055);
+      }
+
+      body {
+        background: #fafafa;
+      }
+
+      header {
+        background: rgba(255, 255, 255, 0.92);
+      }
+
+      .header-inner {
+        max-width: none;
+        padding: 12px 20px;
+        grid-template-columns: minmax(170px, 0.8fr) auto minmax(220px, 0.8fr);
+      }
+
+      .brand {
+        gap: 0;
+      }
+
+      .brand h1 {
+        font-size: 15px;
+        letter-spacing: 0;
+        font-weight: 800;
+      }
+
+      .brand p {
+        font-size: 12px;
+      }
+
+      .tabs {
+        margin: 0;
+        min-width: min(620px, 48vw);
+        background: #f7f7f8;
+        border-color: var(--line);
+      }
+
+      .tab {
+        min-height: 34px;
+        padding: 0 12px;
+        transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
+      }
+
+      .tab:hover {
+        background: #fff;
+      }
+
+      .tab.active {
+        background: var(--selected);
+        color: var(--accent);
+        box-shadow: inset 0 0 0 1px rgba(74, 23, 104, 0.1);
+      }
+
+      .header-actions {
+        justify-content: end;
+      }
+
+      .btn {
+        min-height: 36px;
+        border: 1px solid transparent;
+        transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+      }
+
+      .btn:hover:not(:disabled) {
+        transform: translateY(-1px);
+      }
+
+      .btn.primary {
+        background: var(--accent);
+      }
+
+      .btn.ghost {
+        background: #fff;
+        border-color: var(--line);
+      }
+
+      main {
+        max-width: none;
+        grid-template-columns: 340px minmax(0, 1fr);
+        padding: 18px 20px;
+      }
+
+      .panel,
+      .file-card,
+      .empty-state {
+        box-shadow: none;
+        background: #fff;
+        border-color: var(--line);
+        border-radius: 10px;
+      }
+
+      .panel {
+        padding: 14px;
+      }
+
+      .section-label {
+        margin: 4px 0 10px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0;
+      }
+
+      .files-label {
+        margin-top: 18px;
+      }
+
+      .drop {
+        min-height: 138px;
+        background: #fbfafc;
+      }
+
+      .drop strong {
+        font-size: 14px;
+      }
+
+      .upload-icon {
+        width: 38px;
+        height: 38px;
+        color: var(--accent);
+      }
+
+      .file-list {
+        gap: 8px;
+      }
+
+      .file-card {
+        display: grid;
+        grid-template-columns: 44px 1fr auto;
+        align-items: center;
+        gap: 10px;
+        padding: 8px;
+        overflow: visible;
+        cursor: pointer;
+        transition: background 180ms ease, border-color 180ms ease;
+      }
+
+      .file-card .file-head {
+        display: block;
+        padding: 0;
+        border: 0;
+        min-width: 0;
+      }
+
+      .file-card .file-title span {
+        font-size: 11px;
+      }
+
+      .file-card:hover {
+        background: #fbfafc;
+      }
+
+      .file-card.selected {
+        background: var(--selected);
+        border-color: rgba(74, 23, 104, 0.24);
+      }
+
+      .file-thumb {
+        width: 44px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--accent);
+        overflow: hidden;
+      }
+
+      .file-thumb canvas,
+      .file-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        box-shadow: none;
+      }
+
+      .file-menu {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        background: transparent;
+        color: var(--muted);
+      }
+
+      .file-menu:hover {
+        background: #fff;
+      }
+
+      .progress,
+      .preview-grid,
+      .file-actions {
+        display: none;
+      }
+
+      .advanced {
+        margin-top: 18px;
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+
+      .advanced summary {
+        cursor: pointer;
+        color: var(--ink);
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .reset-link {
+        justify-self: start;
+        padding: 0;
+        background: transparent;
+        color: var(--accent);
+        font-size: 13px;
+      }
+
+      .swatch {
+        background: var(--conversion);
+      }
+
+      .note {
+        border-top: 1px solid var(--line);
+        padding-top: 12px;
+      }
+
+      .workspace {
+        gap: 12px;
+      }
+
+      .statusbar {
+        min-height: 34px;
+        justify-content: flex-start;
+      }
+
+      .pill {
+        border-radius: 8px;
+        padding: 6px 9px;
+      }
+
+      .viewer {
+        min-height: calc(100vh - 124px);
+      }
+
+      .viewer.drag .empty-state {
+        border-color: rgba(74, 23, 104, 0.38);
+        background: var(--selected);
+      }
+
+      .empty-state {
+        min-height: calc(100vh - 124px);
+        box-shadow: none;
+      }
+
+      .empty-state .empty-select {
+        margin-top: 18px;
+      }
+
+      .document-view {
+        min-height: calc(100vh - 124px);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .document-head,
+      .document-toolbar {
+        min-height: 48px;
+        padding: 0 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .document-title {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .doc-icon {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        color: var(--accent);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fbfafc;
+      }
+
+      .document-title strong,
+      .document-title span {
+        display: block;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .document-title span {
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .ready-state {
+        color: #0f766e;
+        font-size: 13px;
+        font-weight: 650;
+      }
+
+      .toolbar-tabs {
+        display: inline-flex;
+        padding: 3px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fafafa;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 650;
+      }
+
+      .toolbar-tabs span {
+        padding: 5px 10px;
+        border-radius: 6px;
+      }
+
+      .toolbar-tabs span:last-child {
+        color: var(--accent);
+        background: #fff;
+      }
+
+      .zoom-tools {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .icon-btn {
+        min-width: 30px;
+        min-height: 30px;
+        padding: 0 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--muted);
+      }
+
+      .compare-stage {
+        position: relative;
+        overflow: auto;
+        height: min(72vh, 780px);
+        background: #f7f7f8;
+        padding: 18px;
+      }
+
+      .compare {
+        --split: 50%;
+        position: relative;
+        width: max-content;
+        max-width: 100%;
+        margin: 0 auto;
+        background: #fff;
+      }
+
+      .compare-base,
+      .compare-result {
+        display: block;
+        max-width: min(100%, 1180px);
+        height: auto;
+        box-shadow: 0 1px 2px rgba(24, 24, 27, 0.14);
+      }
+
+      .compare-result {
+        position: absolute;
+        inset: 0 auto auto 0;
+        clip-path: inset(0 calc(100% - var(--split)) 0 0);
+      }
+
+      .compare-line {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: var(--split);
+        width: 1px;
+        background: var(--accent);
+      }
+
+      .compare-handle {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(74, 23, 104, 0.2);
+        border-radius: 999px;
+        background: #fff;
+        color: var(--accent);
+        transform: translate(-50%, -50%);
+        box-shadow: 0 6px 18px rgba(24, 24, 27, 0.14);
+        font-size: 16px;
+      }
+
+      .compare-range {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0;
+        cursor: ew-resize;
+      }
+
+      .thumb-strip {
+        padding: 12px 14px;
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        border-top: 1px solid var(--line);
+      }
+
+      .page-thumb {
+        width: 86px;
+        height: 58px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .page-thumb.selected {
+        border-color: rgba(74, 23, 104, 0.42);
+        box-shadow: 0 0 0 2px var(--selected);
+      }
+
+      .viewer-download {
+        position: sticky;
+        float: right;
+        right: 18px;
+        bottom: 18px;
+        margin: -56px 18px 18px 0;
+        z-index: 3;
+      }
+
+      body:not(.has-files) main {
+        grid-template-columns: 1fr;
+      }
+
+      body:not(.has-files) aside,
+      body:not(.has-files) .statusbar {
+        display: none;
+      }
+
+      @media (max-width: 980px) {
+        .header-inner {
+          grid-template-columns: 1fr;
+        }
+
+        .tabs {
+          min-width: 0;
+          width: 100%;
+        }
+      }
+
+      @media (max-width: 720px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+
+        .file-card {
+          grid-template-columns: 44px 1fr auto;
+        }
+
+        .compare-stage {
+          height: auto;
+          max-height: 68vh;
+        }
+      }
     </style>
   </head>
   <body>
@@ -538,16 +1035,33 @@
       <header>
         <div class="header-inner">
           <div class="brand">
-            <div class="mark" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
-                <path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="2" />
-                <path d="M8 16h8M8 12h8M8 8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-            </div>
             <div>
-              <h1>Morada Planos</h1>
-              <p>Convierte elementos negros a #5c2483 y exporta SVG editable</p>
+              <h1>MORADALAB</h1>
+              <p>Herramientas creativas de Morada</p>
             </div>
+          </div>
+          <div class="tabs" role="tablist" aria-label="Herramientas">
+            <button class="tab active" id="moradaTab" type="button" role="tab" aria-selected="true" data-mode="morada">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+              </svg>
+              Cambiar color
+            </button>
+            <button class="tab" id="pdfSvgTab" type="button" role="tab" aria-selected="false" data-mode="pdf-svg">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 3h7l5 5v13H7V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                <path d="M14 3v5h5M10 15h4M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              PDF -> SVG
+            </button>
+            <button class="tab" id="pdfWebpTab" type="button" role="tab" aria-selected="false" data-mode="pdf-webp">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M5 4h14v16H5V4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                <path d="m8 15 2.5-3 2 2.3 1.5-1.8L17 16H8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                <path d="M9 8h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+              </svg>
+              PDF -> WEBP
+            </button>
           </div>
           <div class="header-actions">
             <button class="btn ghost" id="clearBtn" type="button" disabled title="Limpiar archivos">
@@ -556,7 +1070,7 @@
               </svg>
               Limpiar
             </button>
-            <button class="btn primary" id="exportAllBtn" type="button" disabled title="Exportar todos los SVG">
+            <button class="btn primary" id="exportAllBtn" type="button" disabled title="Descargar todos los archivos">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v3h16v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               </svg>
@@ -569,29 +1083,7 @@
       <main>
         <aside>
           <section class="panel" aria-label="Carga y ajustes">
-            <div class="tabs" role="tablist" aria-label="Herramientas">
-              <button class="tab active" id="moradaTab" type="button" role="tab" aria-selected="true" data-mode="morada">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                </svg>
-                PLANOS A COLOR
-              </button>
-              <button class="tab" id="pdfSvgTab" type="button" role="tab" aria-selected="false" data-mode="pdf-svg">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M7 3h7l5 5v13H7V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                  <path d="M14 3v5h5M10 15h4M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                PDF a SVG
-              </button>
-              <button class="tab" id="pdfWebpTab" type="button" role="tab" aria-selected="false" data-mode="pdf-webp">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M5 4h14v16H5V4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                  <path d="m8 15 2.5-3 2 2.3 1.5-1.8L17 16H8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-                  <path d="M9 8h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
-                </svg>
-                PDF a WEBP
-              </button>
-            </div>
+            <div class="section-label">Subir archivos</div>
             <label class="drop" id="dropZone">
               <input id="fileInput" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.svg,application/pdf,image/jpeg,image/png,image/svg+xml" />
               <span>
@@ -605,28 +1097,35 @@
               </span>
             </label>
 
-            <div class="controls" id="controlsPanel">
-              <div class="control-row">
-                <div class="control-head">
-                  <label for="blackThreshold">Umbral de negro</label>
-                  <output id="thresholdOut">52</output>
-                </div>
-                <input id="blackThreshold" type="range" min="8" max="110" value="52" />
-              </div>
+            <div class="section-label files-label">Archivos</div>
+            <div id="fileList" class="file-list"></div>
 
-              <div class="control-row">
-                <div class="control-head">
-                  <label for="alphaThreshold">Opacidad mínima</label>
-                  <output id="alphaOut">180</output>
+            <details class="advanced" id="advancedPanel">
+              <summary>Ajustes avanzados</summary>
+              <div class="controls" id="controlsPanel">
+                <div class="control-row">
+                  <div class="control-head">
+                    <label for="blackThreshold">Umbral de negro</label>
+                    <output id="thresholdOut">52</output>
+                  </div>
+                  <input id="blackThreshold" type="range" min="8" max="110" value="52" />
                 </div>
-                <input id="alphaThreshold" type="range" min="1" max="255" value="180" />
-              </div>
 
-              <div class="swatch-line">
-                <span class="swatch" aria-hidden="true"></span>
-                <span>Color destino exacto: <strong>#5c2483</strong></span>
+                <div class="control-row">
+                  <div class="control-head">
+                    <label for="alphaThreshold">Opacidad mínima</label>
+                    <output id="alphaOut">180</output>
+                  </div>
+                  <input id="alphaThreshold" type="range" min="1" max="255" value="180" />
+                </div>
+
+                <button class="reset-link" id="resetSettingsBtn" type="button">Restablecer valores</button>
+                <div class="swatch-line">
+                  <span class="swatch" aria-hidden="true"></span>
+                  <span>Color de conversión <strong>#5C2483</strong></span>
+                </div>
               </div>
-            </div>
+            </details>
 
             <p class="note" id="modeNote">
               Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.
@@ -639,15 +1138,16 @@
             <span class="pill" id="countPill">0 planos listos</span>
             <span class="pill" id="blackPill">Sin elementos detectados</span>
           </div>
-          <div id="fileList" class="file-list">
+          <div id="viewer" class="viewer">
             <div class="empty-state">
               <div>
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="1.6" />
                   <path d="M7 17 17 7M7 7h10v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
-                <h2>Vista antes/después del plano</h2>
-                <p>Los archivos aparecerán aquí con detección automática de negro, conversión a morado y exportación individual en SVG.</p>
+                <h2>Sube tus planos</h2>
+                <p>Arrastra tus PDFs aquí o selecciónalos desde tu computadora.</p>
+                <button class="btn primary empty-select" type="button" data-action="select-files">Seleccionar archivos</button>
               </div>
             </div>
           </div>
@@ -662,6 +1162,7 @@
 
       const state = {
         items: [],
+        selectedId: null,
         pdfjsReady: null,
         mode: "morada",
         settings: {
@@ -674,6 +1175,7 @@
         fileInput: document.querySelector("#fileInput"),
         dropZone: document.querySelector("#dropZone"),
         fileList: document.querySelector("#fileList"),
+        viewer: document.querySelector("#viewer"),
         clearBtn: document.querySelector("#clearBtn"),
         exportAllBtn: document.querySelector("#exportAllBtn"),
         threshold: document.querySelector("#blackThreshold"),
@@ -684,6 +1186,7 @@
         blackPill: document.querySelector("#blackPill"),
         exportAllText: document.querySelector("#exportAllText"),
         controlsPanel: document.querySelector("#controlsPanel"),
+        resetSettingsBtn: document.querySelector("#resetSettingsBtn"),
         tabs: [...document.querySelectorAll(".tab")],
         uploadTitle: document.querySelector("#uploadTitle"),
         uploadHint: document.querySelector("#uploadHint"),
@@ -1824,6 +2327,7 @@
         const card = document.createElement("article");
         card.className = "file-card";
         card.innerHTML = `
+          <div class="file-thumb" data-thumb></div>
           <div class="progress"><span style="--progress: 100%"></span></div>
           <div class="file-head">
             <div class="file-title">
@@ -1845,6 +2349,7 @@
               </button>
             </div>
           </div>
+          <button class="file-menu" type="button" title="Más opciones">...</button>
           <div class="preview-grid">
             <div class="preview-pane">
               <div class="pane-label"><span>Antes</span><span></span></div>
@@ -1857,6 +2362,7 @@
           </div>
         `;
 
+        card.querySelector("[data-thumb]").append(makeThumbnail(item));
         card.querySelector(".file-title strong").textContent = item.name;
         const width = item.kind === "svg" ? item.width : item.original.width;
         const height = item.kind === "svg" ? item.height : item.original.height;
@@ -1894,16 +2400,24 @@
         card.querySelector('[data-slot="before"]').append(before);
         card.querySelector('[data-slot="after"]').append(after);
         card.querySelector("[data-export-label]").textContent = item.kind === "pdf-webp" ? "WEBP" : "SVG";
+        card.addEventListener("click", () => selectItem(item.id));
         card.querySelector('[data-action="export"]').addEventListener("click", () => {
           exportItem(item);
         });
         card.querySelector('[data-action="remove"]').addEventListener("click", () => {
           disposeItem(item);
           state.items = state.items.filter((candidate) => candidate.id !== item.id);
+          if (state.selectedId === item.id) state.selectedId = state.items[0]?.id || null;
           card.remove();
           refreshStatus();
+          updateViewer();
         });
         return card;
+      }
+
+      function makeThumbnail(item) {
+        if (item.kind === "svg") return previewFromSvg(item.convertedSvg);
+        return cloneCanvas(item.original);
       }
 
       function previewFromWebp(url) {
@@ -1960,8 +2474,10 @@
                   ? makeSvgItem(page)
                   : makeItem(page.label, page.canvas);
               state.items.push(item);
+              if (!state.selectedId) state.selectedId = item.id;
               els.fileList.append(item.element);
               refreshStatus();
+              updateViewer();
             }
           } catch (error) {
             showError(file.name, error);
@@ -1987,12 +2503,13 @@
       }
 
       function removeEmptyState() {
-        const empty = els.fileList.querySelector(".empty-state");
+        const empty = els.viewer.querySelector(".empty-state");
         if (empty) empty.remove();
       }
 
       function restoreEmptyState() {
-        els.fileList.innerHTML = `
+        els.fileList.innerHTML = "";
+        els.viewer.innerHTML = `
           <div class="empty-state">
             <div>
               <svg width="64" height="64" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -2017,6 +2534,109 @@
             : (black ? `${black.toLocaleString("es")} elementos negros detectados` : "Sin elementos detectados");
         els.exportAllBtn.disabled = count === 0;
         els.clearBtn.disabled = count === 0;
+        document.body.classList.toggle("has-files", count > 0);
+        for (const item of state.items) {
+          item.element.classList.toggle("selected", item.id === state.selectedId);
+        }
+      }
+
+      function selectItem(id) {
+        state.selectedId = id;
+        refreshStatus();
+        updateViewer();
+      }
+
+      function updateViewer() {
+        const item = state.items.find((candidate) => candidate.id === state.selectedId);
+        if (!item) {
+          restoreEmptyState();
+          refreshStatus();
+          return;
+        }
+        els.viewer.innerHTML = "";
+        els.viewer.append(renderViewer(item));
+      }
+
+      function renderViewer(item) {
+        const view = document.createElement("section");
+        view.className = "document-view";
+        const ext = item.kind === "pdf-webp" ? "WEBP" : "SVG";
+        view.innerHTML = `
+          <div class="document-head">
+            <div class="document-title">
+              <span class="doc-icon" aria-hidden="true">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                  <path d="M7 3h7l5 5v13H7V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                  <path d="M14 3v5h5" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <span>
+                <strong></strong>
+                <span class="document-meta"></span>
+              </span>
+            </div>
+            <div class="ready-state">Listo ✓</div>
+          </div>
+          <div class="document-toolbar">
+            <div class="toolbar-tabs"><span>Original</span><span>Resultado</span></div>
+            <div class="zoom-tools">
+              <button class="icon-btn" type="button" title="Alejar">-</button>
+              <span>100%</span>
+              <button class="icon-btn" type="button" title="Acercar">+</button>
+              <button class="icon-btn" type="button" title="Ajustar">Ajustar</button>
+              <button class="icon-btn" type="button" title="Pantalla completa">Full</button>
+            </div>
+          </div>
+          <div class="compare-stage"></div>
+          <div class="thumb-strip"></div>
+          <button class="btn primary viewer-download" type="button">↓ Descargar ${ext}</button>
+        `;
+        view.querySelector(".document-title strong").textContent = item.name;
+        view.querySelector(".document-meta").textContent = documentMeta(item);
+        view.querySelector(".compare-stage").append(renderCompare(item));
+        view.querySelector(".thumb-strip").append(...state.items.map((candidate) => renderPageThumb(candidate)));
+        view.querySelector(".viewer-download").addEventListener("click", () => exportItem(item));
+        return view;
+      }
+
+      function documentMeta(item) {
+        if (item.kind === "pdf-webp") return `Página ${item.pageNumber} de ${item.pages}`;
+        if (item.kind === "pdf-svg") return "PDF convertido a SVG editable";
+        if (item.kind === "svg") return "SVG vectorial";
+        return "Plano convertido a color";
+      }
+
+      function renderCompare(item) {
+        const wrap = document.createElement("div");
+        wrap.className = "compare";
+        const before = item.kind === "svg" ? previewFromSvg(item.originalSvg) : cloneCanvas(item.original);
+        const after = item.kind === "svg"
+          ? previewFromSvg(item.convertedSvg)
+          : item.kind === "pdf-svg"
+            ? previewFromSvg(item.vectorSvg)
+            : item.kind === "pdf-webp"
+              ? previewFromWebp(item.webpUrl)
+              : cloneCanvas(item.processed.converted);
+        before.classList.add("compare-base");
+        after.classList.add("compare-result");
+        wrap.append(before, after);
+        wrap.insertAdjacentHTML("beforeend", `
+          <div class="compare-line"><span class="compare-handle">↔</span></div>
+          <input class="compare-range" type="range" min="0" max="100" value="50" aria-label="Comparar original y resultado" />
+        `);
+        const range = wrap.querySelector(".compare-range");
+        range.addEventListener("input", () => wrap.style.setProperty("--split", `${range.value}%`));
+        return wrap;
+      }
+
+      function renderPageThumb(item) {
+        const button = document.createElement("button");
+        button.className = `page-thumb${item.id === state.selectedId ? " selected" : ""}`;
+        button.type = "button";
+        button.title = item.name;
+        button.append(makeThumbnail(item));
+        button.addEventListener("click", () => selectItem(item.id));
+        return button;
       }
 
       function reprocessAll() {
@@ -2047,6 +2667,7 @@
           restoreEmptyState();
         }
         refreshStatus();
+        updateViewer();
       }
 
       function reprocessSvgItem(item) {
@@ -2069,6 +2690,7 @@
         for (const item of state.items) disposeItem(item);
         state.mode = mode;
         state.items = [];
+        state.selectedId = null;
         restoreEmptyState();
 
         for (const tab of els.tabs) {
@@ -2106,6 +2728,7 @@
       function clearItems() {
         for (const item of state.items) disposeItem(item);
         state.items = [];
+        state.selectedId = null;
         restoreEmptyState();
         refreshStatus();
       }
@@ -2144,6 +2767,35 @@
         state.settings.alphaThreshold = Number(els.alpha.value);
         els.alphaOut.textContent = els.alpha.value;
         reprocessAll();
+      });
+
+      els.resetSettingsBtn.addEventListener("click", () => {
+        state.settings.blackThreshold = 52;
+        state.settings.alphaThreshold = 180;
+        els.threshold.value = "52";
+        els.alpha.value = "180";
+        els.thresholdOut.textContent = "52";
+        els.alphaOut.textContent = "180";
+        reprocessAll();
+      });
+
+      els.viewer.addEventListener("click", (event) => {
+        if (event.target.closest('[data-action="select-files"]')) els.fileInput.click();
+      });
+
+      els.viewer.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        els.viewer.classList.add("drag");
+      });
+
+      els.viewer.addEventListener("dragleave", (event) => {
+        if (!els.viewer.contains(event.relatedTarget)) els.viewer.classList.remove("drag");
+      });
+
+      els.viewer.addEventListener("drop", (event) => {
+        event.preventDefault();
+        els.viewer.classList.remove("drag");
+        handleFiles(event.dataTransfer.files);
       });
 
       els.clearBtn.addEventListener("click", () => {
