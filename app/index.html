@@ -257,6 +257,49 @@
         pointer-events: none;
       }
 
+      .raster-format-row {
+        margin-top: 18px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .raster-format-row[hidden] {
+        display: none;
+      }
+
+      .format-toggle {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 6px;
+        padding: 4px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #faf8fc;
+      }
+
+      .format-toggle label {
+        display: flex;
+        min-height: 36px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px;
+        color: var(--muted);
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .format-toggle input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .format-toggle label:has(input:checked) {
+        color: var(--accent);
+        background: white;
+        box-shadow: inset 0 0 0 1px rgba(92, 36, 131, 0.25);
+      }
+
       .control-row {
         display: grid;
         gap: 8px;
@@ -1126,6 +1169,23 @@
                   <span>Color de conversión <strong>#5C2483</strong></span>
                 </div>
               </div>
+
+              <div class="raster-format-row" id="rasterFormatRow" hidden>
+                <div class="control-head">
+                  <span>Formato de salida</span>
+                  <output id="rasterFormatOut">WEBP</output>
+                </div>
+                <div class="format-toggle" role="radiogroup" aria-label="Formato de salida para PDF">
+                  <label>
+                    <input type="radio" name="rasterFormat" value="webp" checked />
+                    WEBP
+                  </label>
+                  <label>
+                    <input type="radio" name="rasterFormat" value="jpg" />
+                    JPG
+                  </label>
+                </div>
+              </div>
             </details>
 
             <p class="note" id="modeNote">
@@ -1169,6 +1229,7 @@
         settings: {
           blackThreshold: 52,
           alphaThreshold: 180,
+          rasterFormat: "webp",
         },
       };
 
@@ -1187,6 +1248,9 @@
         blackPill: document.querySelector("#blackPill"),
         exportAllText: document.querySelector("#exportAllText"),
         controlsPanel: document.querySelector("#controlsPanel"),
+        rasterFormatRow: document.querySelector("#rasterFormatRow"),
+        rasterFormatOut: document.querySelector("#rasterFormatOut"),
+        rasterFormatInputs: [...document.querySelectorAll('input[name="rasterFormat"]')],
         resetSettingsBtn: document.querySelector("#resetSettingsBtn"),
         tabs: [...document.querySelectorAll(".tab")],
         uploadTitle: document.querySelector("#uploadTitle"),
@@ -1607,13 +1671,15 @@
         const pages = await canvasesFromPdf(file, { includeVector: false, removeLegendMeasurements: true });
         if (!pages.length) throw new Error("El PDF no tiene paginas para convertir.");
         const multiple = pages.length > 1;
+        const format = state.settings.rasterFormat;
         return Promise.all(pages.map(async (page, index) => ({
           kind: "pdf-webp",
           label: multiple ? `${file.name} - pagina ${index + 1}` : file.name,
           canvas: page.canvas,
           pageNumber: index + 1,
           pages: pages.length,
-          webpBlob: await canvasToWebpBlob(page.canvas),
+          format,
+          imageBlob: await canvasToRasterBlob(page.canvas, format),
         })));
       }
 
@@ -2115,15 +2181,16 @@
         }
         const files = await Promise.all(state.items.map(itemToDownloadFile));
         const zipBlob = await createZip(files);
-        const suffix = state.mode === "pdf-webp" ? "webp" : state.mode === "pdf-svg" ? "svg" : "morada";
+        const suffix = state.mode === "pdf-webp" ? rasterFormatExtension() : state.mode === "pdf-svg" ? "svg" : "morada";
         downloadBlob(`morada_planos_${suffix}.zip`, zipBlob);
       }
 
       async function itemToDownloadFile(item) {
         if (item.kind === "pdf-webp") {
+          const ext = rasterFormatExtension(item.format);
           return {
-            name: `${safeSvgName(item.name)}_webp.webp`,
-            blob: item.webpBlob,
+            name: `${safeSvgName(item.name)}_${ext}.${ext}`,
+            blob: item.imageBlob || item.webpBlob,
           };
         }
         return {
@@ -2241,15 +2308,27 @@
         return table;
       })();
 
-      function canvasToWebpBlob(canvas) {
+      function rasterFormatLabel(format = state.settings.rasterFormat) {
+        return format === "jpg" ? "JPG" : "WEBP";
+      }
+
+      function rasterFormatExtension(format = state.settings.rasterFormat) {
+        return format === "jpg" ? "jpg" : "webp";
+      }
+
+      function rasterFormatMime(format = state.settings.rasterFormat) {
+        return format === "jpg" ? "image/jpeg" : "image/webp";
+      }
+
+      function canvasToRasterBlob(canvas, format = state.settings.rasterFormat) {
         return new Promise((resolve, reject) => {
           canvas.toBlob((blob) => {
             if (!blob) {
-              reject(new Error("Este navegador no pudo generar WEBP desde el PDF."));
+              reject(new Error(`Este navegador no pudo generar ${rasterFormatLabel(format)} desde el PDF.`));
               return;
             }
             resolve(blob);
-          }, "image/webp", 0.96);
+          }, rasterFormatMime(format), format === "jpg" ? 0.94 : 0.96);
         });
       }
 
@@ -2313,13 +2392,19 @@
       }
 
       function makePdfWebpItem(page) {
+        const format = page.format || state.settings.rasterFormat;
+        const imageBlob = page.imageBlob || page.webpBlob;
+        const imageUrl = URL.createObjectURL(imageBlob);
         const item = {
           id: uid(),
           kind: "pdf-webp",
           name: page.label,
           original: page.canvas,
-          webpBlob: page.webpBlob,
-          webpUrl: URL.createObjectURL(page.webpBlob),
+          format,
+          imageBlob,
+          imageUrl,
+          webpBlob: imageBlob,
+          webpUrl: imageUrl,
           pages: page.pages,
           pageNumber: page.pageNumber,
           blackPixels: 1,
@@ -2414,7 +2499,7 @@
           : item.kind === "pdf-svg"
             ? `${width} x ${height}px - PDF vectorial editable`
             : item.kind === "pdf-webp"
-              ? `${width} x ${height}px - WEBP pagina ${item.pageNumber} de ${item.pages}`
+              ? `${width} x ${height}px - ${rasterFormatLabel(item.format)} pagina ${item.pageNumber} de ${item.pages}`
               : `${width} x ${height}px`;
         if (item.warning) {
           const warning = document.createElement("div");
@@ -2431,7 +2516,7 @@
           : item.kind === "pdf-svg"
             ? `${item.blackPixels.toLocaleString("es")} vectores/textos`
             : item.kind === "pdf-webp"
-              ? "Imagen WEBP lista"
+              ? `Imagen ${rasterFormatLabel(item.format)} lista`
               : `${item.processed.blackPixels.toLocaleString("es")} px negros`;
         const before = item.kind === "svg" ? previewFromSvg(item.originalSvg) : cloneCanvas(item.original);
         const after = item.kind === "svg"
@@ -2441,12 +2526,12 @@
           : item.kind === "pdf-svg"
             ? previewFromSvg(item.vectorSvg)
             : item.kind === "pdf-webp"
-              ? previewFromWebp(item.webpUrl)
+              ? previewFromWebp(item.imageUrl || item.webpUrl)
               : cloneCanvas(item.processed.converted);
         card.querySelector('[data-slot="before"]').append(before);
         card.querySelector('[data-slot="after"]').append(after);
         const exportLabel = card.querySelector("[data-export-label]");
-        if (exportLabel) exportLabel.textContent = item.kind === "pdf-webp" ? "WEBP" : "SVG";
+        if (exportLabel) exportLabel.textContent = item.kind === "pdf-webp" ? rasterFormatLabel(item.format) : "SVG";
         card.addEventListener("click", () => selectItem(item.id));
         const exportButton = card.querySelector('[data-action="export"]');
         if (exportButton) exportButton.addEventListener("click", () => exportItem(item));
@@ -2479,14 +2564,16 @@
 
       function exportItem(item) {
         if (item.kind === "pdf-webp") {
-          downloadBlob(`${safeSvgName(item.name)}_webp.webp`, item.webpBlob);
+          const ext = rasterFormatExtension(item.format);
+          downloadBlob(`${safeSvgName(item.name)}_${ext}.${ext}`, item.imageBlob || item.webpBlob);
           return;
         }
         downloadText(`${safeSvgName(item.name)}${item.kind === "pdf-svg" ? "_svg" : "_morada"}.svg`, svgForItem(item));
       }
 
       function disposeItem(item) {
-        if (item.webpUrl) URL.revokeObjectURL(item.webpUrl);
+        if (item.imageUrl) URL.revokeObjectURL(item.imageUrl);
+        if (item.webpUrl && item.webpUrl !== item.imageUrl) URL.revokeObjectURL(item.webpUrl);
       }
 
       async function handleFiles(fileList) {
@@ -2581,7 +2668,7 @@
         els.blackPill.textContent = state.mode === "pdf-svg"
           ? (count ? `${count} ${count === 1 ? "SVG generado" : "SVG generados"}` : "Sin PDFs cargados")
           : state.mode === "pdf-webp"
-            ? (count ? `${black.toLocaleString("es")} paginas WEBP` : "Sin PDFs cargados")
+            ? (count ? `${black.toLocaleString("es")} paginas ${rasterFormatLabel()}` : "Sin PDFs cargados")
             : (black ? `${black.toLocaleString("es")} elementos negros detectados` : "Sin elementos detectados");
         els.exportAllBtn.disabled = count === 0;
         els.clearBtn.disabled = count === 0;
@@ -2611,7 +2698,7 @@
       function renderViewer(item) {
         const view = document.createElement("section");
         view.className = "document-view";
-        const ext = item.kind === "pdf-webp" ? "WEBP" : "SVG";
+        const ext = item.kind === "pdf-webp" ? rasterFormatLabel(item.format) : "SVG";
         view.innerHTML = `
           <div class="document-head">
             <div class="document-title">
@@ -2651,7 +2738,7 @@
       }
 
       function documentMeta(item) {
-        if (item.kind === "pdf-webp") return `Página ${item.pageNumber} de ${item.pages}`;
+        if (item.kind === "pdf-webp") return `Página ${item.pageNumber} de ${item.pages} - ${rasterFormatLabel(item.format)}`;
         if (item.kind === "pdf-color") return "PDF vectorial convertido a color";
         if (item.kind === "pdf-svg") return "PDF convertido a SVG editable";
         if (item.kind === "svg") return "SVG vectorial";
@@ -2736,7 +2823,8 @@
               canvas: item.original,
               pages: item.pages,
               pageNumber: item.pageNumber,
-              webpBlob: item.webpBlob,
+              format: item.format,
+              imageBlob: item.imageBlob || item.webpBlob,
             });
           }
           if (item.kind === "svg") {
@@ -2750,6 +2838,30 @@
         } else {
           restoreEmptyState();
         }
+        refreshStatus();
+        updateViewer();
+      }
+
+      async function reencodePdfRasterItems() {
+        if (state.mode !== "pdf-webp" || !state.items.length) return;
+        const previous = [...state.items];
+        const selectedName = state.items.find((item) => item.id === state.selectedId)?.name;
+        state.items = await Promise.all(previous.map(async (item) => {
+          item.element.remove();
+          disposeItem(item);
+          if (item.kind !== "pdf-webp") return item;
+          return makePdfWebpItem({
+            label: item.name,
+            canvas: item.original,
+            pages: item.pages,
+            pageNumber: item.pageNumber,
+            format: state.settings.rasterFormat,
+            imageBlob: await canvasToRasterBlob(item.original, state.settings.rasterFormat),
+          });
+        }));
+        state.selectedId = state.items.find((item) => item.name === selectedName)?.id || state.items[0]?.id || null;
+        els.fileList.innerHTML = "";
+        for (const item of state.items) els.fileList.append(item.element);
         refreshStatus();
         updateViewer();
       }
@@ -2770,39 +2882,47 @@
       }
 
       function setMode(mode) {
-        if (state.mode === mode) return;
+        if (state.mode === mode) {
+          refreshModeUi();
+          return;
+        }
         for (const item of state.items) disposeItem(item);
         state.mode = mode;
         state.items = [];
         state.selectedId = null;
         restoreEmptyState();
+        refreshModeUi();
+      }
 
+      function refreshModeUi() {
         for (const tab of els.tabs) {
-          const active = tab.dataset.mode === mode;
+          const active = tab.dataset.mode === state.mode;
           tab.classList.toggle("active", active);
           tab.setAttribute("aria-selected", String(active));
         }
 
-        const pdfMode = mode === "pdf-svg" || mode === "pdf-webp";
-        const webpMode = mode === "pdf-webp";
+        const pdfMode = state.mode === "pdf-svg" || state.mode === "pdf-webp";
+        const webpMode = state.mode === "pdf-webp";
         els.fileInput.accept = pdfMode
           ? ".pdf,application/pdf"
           : ".pdf,.jpg,.jpeg,.png,.svg,application/pdf,image/jpeg,image/png,image/svg+xml";
         els.uploadTitle.textContent = webpMode
-          ? "Sube PDFs para convertir a WEBP"
+          ? `Sube PDFs para convertir a ${rasterFormatLabel()}`
           : pdfMode
             ? "Sube PDFs para convertir a SVG"
             : "Sube planos PDF, JPG, PNG o SVG";
         els.uploadHint.textContent = webpMode
-          ? "Cada pagina del PDF se exporta como una imagen WEBP independiente."
+          ? `Cada pagina del PDF se exporta como una imagen ${rasterFormatLabel()} independiente.`
           : pdfMode
             ? "Cada pagina del PDF se exporta como un SVG independiente."
             : "Arrastra archivos o haz clic para seleccionarlos.";
-        els.exportAllText.textContent = webpMode ? "Descargar WEBP" : "Descargar todo";
-        els.exportAllBtn.title = webpMode ? "Descargar todos los WEBP en ZIP" : "Descargar todos los archivos en ZIP";
+        els.exportAllText.textContent = webpMode ? `Descargar ${rasterFormatLabel()}` : "Descargar todo";
+        els.exportAllBtn.title = webpMode ? `Descargar todos los ${rasterFormatLabel()} en ZIP` : "Descargar todos los archivos en ZIP";
         els.controlsPanel.classList.toggle("is-disabled", pdfMode);
+        els.rasterFormatRow.hidden = !webpMode;
+        els.rasterFormatOut.textContent = rasterFormatLabel();
         els.modeNote.textContent = webpMode
-          ? "El PDF se renderiza con alta nitidez y cada pagina se descarga como WEBP, manteniendo la apariencia y colores originales."
+          ? `El PDF se renderiza con alta nitidez y cada pagina se descarga como ${rasterFormatLabel()}, manteniendo la apariencia y colores originales.`
           : pdfMode
             ? "El PDF se convierte a SVG vectorial editable cuando el archivo conserva trazos/textos internos. Si el PDF contiene solo imagen escaneada, no hay vectores reales que extraer."
             : "Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.";
@@ -2824,6 +2944,20 @@
 
       for (const tab of els.tabs) {
         tab.addEventListener("click", () => setMode(tab.dataset.mode));
+      }
+
+      for (const input of els.rasterFormatInputs) {
+        input.addEventListener("change", async () => {
+          if (!input.checked) return;
+          state.settings.rasterFormat = input.value;
+          els.rasterFormatOut.textContent = rasterFormatLabel();
+          setMode(state.mode);
+          try {
+            await reencodePdfRasterItems();
+          } catch (error) {
+            showError("PDF a imagen", error);
+          }
+        });
       }
 
       els.dropZone.addEventListener("dragover", (event) => {
