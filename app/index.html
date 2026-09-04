@@ -2388,127 +2388,71 @@
         const ctx = canvas.getContext("2d", { alpha: false });
         ctx.fillStyle = "#fff";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
-        const crop = findPortalNexoCrop(sourceCanvas);
-        const padding = 18;
-        const availableWidth = canvas.width - padding * 2;
-        const availableHeight = canvas.height - padding * 2;
-        const scale = Math.min(availableWidth / crop.width, availableHeight / crop.height);
-        const drawWidth = crop.width * scale;
-        const drawHeight = crop.height * scale;
+        const scale = Math.min(canvas.width / sourceCanvas.width, canvas.height / sourceCanvas.height);
+        const drawWidth = Math.max(1, Math.round(sourceCanvas.width * scale));
+        const drawHeight = Math.max(1, Math.round(sourceCanvas.height * scale));
         const x = (canvas.width - drawWidth) / 2;
         const y = (canvas.height - drawHeight) / 2;
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(sourceCanvas, crop.x, crop.y, crop.width, crop.height, x, y, drawWidth, drawHeight);
+        const reduced = downsampleCanvas(sourceCanvas, drawWidth, drawHeight);
+        sharpenCanvas(reduced, 0.32);
+        ctx.drawImage(reduced, x, y);
         return canvas;
       }
 
-      function findPortalNexoCrop(canvas) {
-        const dominant = findDominantInkBounds(canvas);
-        if (dominant && dominant.width > canvas.width * 0.18 && dominant.height > canvas.height * 0.05) {
-          return expandBounds(dominant, canvas, 34);
+      function downsampleCanvas(sourceCanvas, targetWidth, targetHeight) {
+        let current = sourceCanvas;
+        let currentWidth = sourceCanvas.width;
+        let currentHeight = sourceCanvas.height;
+        while (currentWidth * 0.5 > targetWidth && currentHeight * 0.5 > targetHeight) {
+          const next = document.createElement("canvas");
+          next.width = Math.max(targetWidth, Math.round(currentWidth * 0.5));
+          next.height = Math.max(targetHeight, Math.round(currentHeight * 0.5));
+          const nextCtx = next.getContext("2d", { alpha: false });
+          nextCtx.fillStyle = "#fff";
+          nextCtx.fillRect(0, 0, next.width, next.height);
+          nextCtx.imageSmoothingEnabled = true;
+          nextCtx.imageSmoothingQuality = "high";
+          nextCtx.drawImage(current, 0, 0, next.width, next.height);
+          current = next;
+          currentWidth = next.width;
+          currentHeight = next.height;
         }
-        const ink = findInkBounds(canvas);
-        return ink ? expandBounds(ink, canvas, 28) : { x: 0, y: 0, width: canvas.width, height: canvas.height };
+        const finalCanvas = document.createElement("canvas");
+        finalCanvas.width = targetWidth;
+        finalCanvas.height = targetHeight;
+        const finalCtx = finalCanvas.getContext("2d", { alpha: false });
+        finalCtx.fillStyle = "#fff";
+        finalCtx.fillRect(0, 0, targetWidth, targetHeight);
+        finalCtx.imageSmoothingEnabled = true;
+        finalCtx.imageSmoothingQuality = "high";
+        finalCtx.drawImage(current, 0, 0, targetWidth, targetHeight);
+        return finalCanvas;
       }
 
-      function findInkBounds(canvas) {
+      function sharpenCanvas(canvas, amount = 0.25) {
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        const { width, height } = canvas;
-        const data = ctx.getImageData(0, 0, width, height).data;
-        let minX = width;
-        let minY = height;
-        let maxX = -1;
-        let maxY = -1;
-        for (let y = 0; y < height; y += 2) {
-          for (let x = 0; x < width; x += 2) {
+        const image = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const source = image.data;
+        const output = new Uint8ClampedArray(source);
+        const width = canvas.width;
+        const height = canvas.height;
+        for (let y = 1; y < height - 1; y += 1) {
+          for (let x = 1; x < width - 1; x += 1) {
             const index = (y * width + x) * 4;
-            if (!isInkPixel(data[index], data[index + 1], data[index + 2], data[index + 3])) continue;
-            minX = Math.min(minX, x);
-            minY = Math.min(minY, y);
-            maxX = Math.max(maxX, x);
-            maxY = Math.max(maxY, y);
-          }
-        }
-        if (maxX < minX || maxY < minY) return null;
-        return { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 };
-      }
-
-      function findDominantInkBounds(canvas) {
-        const tile = 18;
-        const cols = Math.ceil(canvas.width / tile);
-        const rows = Math.ceil(canvas.height / tile);
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        const active = new Uint8Array(cols * rows);
-        for (let row = 0; row < rows; row += 1) {
-          for (let col = 0; col < cols; col += 1) {
-            let ink = 0;
-            const startX = col * tile;
-            const startY = row * tile;
-            const endX = Math.min(canvas.width, startX + tile);
-            const endY = Math.min(canvas.height, startY + tile);
-            for (let y = startY; y < endY; y += 2) {
-              for (let x = startX; x < endX; x += 2) {
-                const index = (y * canvas.width + x) * 4;
-                if (isInkPixel(data[index], data[index + 1], data[index + 2], data[index + 3])) ink += 1;
-              }
-            }
-            if (ink >= 3) active[row * cols + col] = 1;
-          }
-        }
-
-        const seen = new Uint8Array(active.length);
-        let best = null;
-        for (let i = 0; i < active.length; i += 1) {
-          if (!active[i] || seen[i]) continue;
-          const stack = [i];
-          seen[i] = 1;
-          let count = 0;
-          let minCol = cols;
-          let minRow = rows;
-          let maxCol = -1;
-          let maxRow = -1;
-          while (stack.length) {
-            const current = stack.pop();
-            const row = Math.floor(current / cols);
-            const col = current % cols;
-            count += 1;
-            minCol = Math.min(minCol, col);
-            minRow = Math.min(minRow, row);
-            maxCol = Math.max(maxCol, col);
-            maxRow = Math.max(maxRow, row);
-            for (const next of [current - 1, current + 1, current - cols, current + cols]) {
-              if (next < 0 || next >= active.length || seen[next] || !active[next]) continue;
-              const nextCol = next % cols;
-              if (Math.abs(nextCol - col) > 1) continue;
-              seen[next] = 1;
-              stack.push(next);
+            for (let channel = 0; channel < 3; channel += 1) {
+              const center = source[index + channel];
+              const blur = (
+                source[index - 4 + channel] +
+                source[index + 4 + channel] +
+                source[index - width * 4 + channel] +
+                source[index + width * 4 + channel]
+              ) / 4;
+              output[index + channel] = Math.max(0, Math.min(255, center + (center - blur) * amount));
             }
           }
-          const bounds = {
-            x: minCol * tile,
-            y: minRow * tile,
-            width: Math.min(canvas.width, (maxCol + 1) * tile) - minCol * tile,
-            height: Math.min(canvas.height, (maxRow + 1) * tile) - minRow * tile,
-          };
-          const score = count * Math.sqrt(bounds.width * bounds.height);
-          if (!best || score > best.score) best = { ...bounds, score };
         }
-        return best;
-      }
-
-      function isInkPixel(r, g, b, a) {
-        if (a < 24) return false;
-        return r < 238 || g < 238 || b < 238;
-      }
-
-      function expandBounds(bounds, canvas, padding) {
-        const x = Math.max(0, bounds.x - padding);
-        const y = Math.max(0, bounds.y - padding);
-        const right = Math.min(canvas.width, bounds.x + bounds.width + padding);
-        const bottom = Math.min(canvas.height, bounds.y + bounds.height + padding);
-        return { x, y, width: right - x, height: bottom - y };
+        image.data.set(output);
+        ctx.putImageData(image, 0, 0);
       }
 
       function safeSvgName(name) {
