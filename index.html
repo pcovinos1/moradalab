@@ -1224,7 +1224,7 @@
                 <input id="portalNexoToggle" type="checkbox" />
                 <span>
                   <strong>PORTAL NEXO</strong>
-                  <span>Adaptar lamina completa a 759 x 427 px, sin recorte</span>
+                  <span>Adaptar lamina completa a 1192 x 843 px, 300 dpi, sin recorte</span>
                 </span>
               </label>
             </div>
@@ -1261,7 +1261,7 @@
       const TARGET = { r: 92, g: 36, b: 131, hex: "#5c2483" };
       const MAX_PREVIEW_EDGE = 2200;
       const DPI_SCALE = 2.4;
-      const PORTAL_NEXO_SIZE = { width: 759, height: 427 };
+      const PORTAL_NEXO_SIZE = { width: 1192, height: 843, dpi: 300 };
 
       const state = {
         items: [],
@@ -2369,16 +2369,42 @@
         return format === "jpg" ? "image/jpeg" : "image/webp";
       }
 
-      function canvasToRasterBlob(canvas, format = state.settings.rasterFormat) {
+      function portalNexoLabel() {
+        return `PORTAL NEXO ${PORTAL_NEXO_SIZE.width} x ${PORTAL_NEXO_SIZE.height} px, ${PORTAL_NEXO_SIZE.dpi} dpi`;
+      }
+
+      async function canvasToRasterBlob(canvas, format = state.settings.rasterFormat) {
         return new Promise((resolve, reject) => {
-          canvas.toBlob((blob) => {
+          canvas.toBlob(async (blob) => {
             if (!blob) {
               reject(new Error(`Este navegador no pudo generar ${rasterFormatLabel(format)} desde el PDF.`));
               return;
             }
-            resolve(blob);
+            resolve(format === "jpg" ? await setJpegDpi(blob, PORTAL_NEXO_SIZE.dpi) : blob);
           }, rasterFormatMime(format), format === "jpg" ? 0.98 : 0.96);
         });
+      }
+
+      async function setJpegDpi(blob, dpi) {
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        if (bytes[0] !== 0xff || bytes[1] !== 0xd8) return blob;
+        const patched = new Uint8Array(bytes);
+        let offset = 2;
+        while (offset + 9 < patched.length && patched[offset] === 0xff) {
+          const marker = patched[offset + 1];
+          const length = (patched[offset + 2] << 8) + patched[offset + 3];
+          if (marker === 0xe0 && patched[offset + 4] === 0x4a && patched[offset + 5] === 0x46 && patched[offset + 6] === 0x49 && patched[offset + 7] === 0x46) {
+            patched[offset + 11] = 1;
+            patched[offset + 12] = (dpi >> 8) & 0xff;
+            patched[offset + 13] = dpi & 0xff;
+            patched[offset + 14] = (dpi >> 8) & 0xff;
+            patched[offset + 15] = dpi & 0xff;
+            return new Blob([patched], { type: blob.type || "image/jpeg" });
+          }
+          if (length < 2 || marker === 0xda) break;
+          offset += 2 + length;
+        }
+        return blob;
       }
 
       function canvasForPortalNexo(sourceCanvas) {
@@ -2867,7 +2893,7 @@
 
       function documentMeta(item) {
         if (item.kind === "pdf-webp") {
-          return `Página ${item.pageNumber} de ${item.pages} - ${rasterFormatLabel(item.format)}${item.portalNexo ? " - PORTAL NEXO 759 x 427 px" : ""}`;
+          return `Página ${item.pageNumber} de ${item.pages} - ${rasterFormatLabel(item.format)}${item.portalNexo ? ` - ${portalNexoLabel()}` : ""}`;
         }
         if (item.kind === "pdf-color") return "PDF vectorial convertido a color";
         if (item.kind === "pdf-svg") return "PDF convertido a SVG editable";
@@ -3062,7 +3088,7 @@
         els.rasterFormatOut.textContent = rasterFormatLabel();
         els.portalNexoToggle.checked = state.settings.portalNexo;
         els.modeNote.textContent = webpMode
-          ? `El PDF se renderiza con alta nitidez y cada pagina se descarga como ${rasterFormatLabel()}${state.settings.portalNexo ? " en formato PORTAL NEXO 759 x 427 px" : ""}, manteniendo la apariencia y colores originales.`
+          ? `El PDF se renderiza con alta nitidez y cada pagina se descarga como ${rasterFormatLabel()}${state.settings.portalNexo ? ` en formato ${portalNexoLabel()}` : ""}, manteniendo la apariencia y colores originales.`
           : pdfMode
             ? "El PDF se convierte a SVG vectorial editable cuando el archivo conserva trazos/textos internos. Si el PDF contiene solo imagen escaneada, no hay vectores reales que extraer."
             : "Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.";
