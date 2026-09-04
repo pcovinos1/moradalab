@@ -300,6 +300,35 @@
         box-shadow: inset 0 0 0 1px rgba(92, 36, 131, 0.25);
       }
 
+      .portal-option {
+        display: grid;
+        grid-template-columns: 18px 1fr;
+        gap: 10px;
+        align-items: start;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: white;
+        color: var(--ink);
+        font-size: 13px;
+        cursor: pointer;
+      }
+
+      .portal-option input {
+        margin: 2px 0 0;
+        accent-color: var(--accent);
+      }
+
+      .portal-option strong,
+      .portal-option span {
+        display: block;
+      }
+
+      .portal-option span {
+        margin-top: 2px;
+        color: var(--muted);
+      }
+
       .control-row {
         display: grid;
         gap: 8px;
@@ -1191,6 +1220,13 @@
                   JPG
                 </label>
               </div>
+              <label class="portal-option">
+                <input id="portalNexoToggle" type="checkbox" />
+                <span>
+                  <strong>PORTAL NEXO</strong>
+                  <span>Adaptar salida a 759 x 427 px</span>
+                </span>
+              </label>
             </div>
 
             <p class="note" id="modeNote">
@@ -1225,6 +1261,7 @@
       const TARGET = { r: 92, g: 36, b: 131, hex: "#5c2483" };
       const MAX_PREVIEW_EDGE = 2200;
       const DPI_SCALE = 2.4;
+      const PORTAL_NEXO_SIZE = { width: 759, height: 427 };
 
       const state = {
         items: [],
@@ -1235,6 +1272,7 @@
           blackThreshold: 52,
           alphaThreshold: 180,
           rasterFormat: "webp",
+          portalNexo: false,
         },
       };
 
@@ -1256,6 +1294,7 @@
         rasterFormatRow: document.querySelector("#rasterFormatRow"),
         rasterFormatOut: document.querySelector("#rasterFormatOut"),
         rasterFormatInputs: [...document.querySelectorAll('input[name="rasterFormat"]')],
+        portalNexoToggle: document.querySelector("#portalNexoToggle"),
         resetSettingsBtn: document.querySelector("#resetSettingsBtn"),
         tabs: [...document.querySelectorAll(".tab")],
         uploadTitle: document.querySelector("#uploadTitle"),
@@ -1677,15 +1716,20 @@
         if (!pages.length) throw new Error("El PDF no tiene paginas para convertir.");
         const multiple = pages.length > 1;
         const format = state.settings.rasterFormat;
-        return Promise.all(pages.map(async (page, index) => ({
-          kind: "pdf-webp",
-          label: multiple ? `${file.name} - pagina ${index + 1}` : file.name,
-          canvas: page.canvas,
-          pageNumber: index + 1,
-          pages: pages.length,
-          format,
-          imageBlob: await canvasToRasterBlob(page.canvas, format),
-        })));
+        return Promise.all(pages.map(async (page, index) => {
+          const outputCanvas = state.settings.portalNexo ? canvasForPortalNexo(page.canvas) : page.canvas;
+          return {
+            kind: "pdf-webp",
+            label: multiple ? `${file.name} - pagina ${index + 1}` : file.name,
+            canvas: page.canvas,
+            outputCanvas,
+            pageNumber: index + 1,
+            pages: pages.length,
+            format,
+            portalNexo: state.settings.portalNexo,
+            imageBlob: await canvasToRasterBlob(outputCanvas, format),
+          };
+        }));
       }
 
       async function eraseLegendMeasurements(page, viewport, ctx) {
@@ -2194,7 +2238,7 @@
         if (item.kind === "pdf-webp") {
           const ext = rasterFormatExtension(item.format);
           return {
-            name: `${safeSvgName(item.name)}_${ext}.${ext}`,
+            name: `${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo" : ""}_${ext}.${ext}`,
             blob: item.imageBlob || item.webpBlob,
           };
         }
@@ -2337,6 +2381,24 @@
         });
       }
 
+      function canvasForPortalNexo(sourceCanvas) {
+        const canvas = document.createElement("canvas");
+        canvas.width = PORTAL_NEXO_SIZE.width;
+        canvas.height = PORTAL_NEXO_SIZE.height;
+        const ctx = canvas.getContext("2d", { alpha: false });
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        const scale = Math.min(canvas.width / sourceCanvas.width, canvas.height / sourceCanvas.height);
+        const drawWidth = sourceCanvas.width * scale;
+        const drawHeight = sourceCanvas.height * scale;
+        const x = (canvas.width - drawWidth) / 2;
+        const y = (canvas.height - drawHeight) / 2;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(sourceCanvas, x, y, drawWidth, drawHeight);
+        return canvas;
+      }
+
       function safeSvgName(name) {
         return name.replace(/\.[^.]+$/, "").replace(/[^a-z0-9_-]+/gi, "_").replace(/^_+|_+$/g, "") || "plano";
       }
@@ -2400,12 +2462,17 @@
         const format = page.format || state.settings.rasterFormat;
         const imageBlob = page.imageBlob || page.webpBlob;
         const imageUrl = URL.createObjectURL(imageBlob);
+        const outputCanvas = page.outputCanvas || page.canvas;
         const item = {
           id: uid(),
           kind: "pdf-webp",
           name: page.label,
           original: page.canvas,
+          outputCanvas,
+          outputWidth: outputCanvas.width,
+          outputHeight: outputCanvas.height,
           format,
+          portalNexo: Boolean(page.portalNexo),
           imageBlob,
           imageUrl,
           webpBlob: imageBlob,
@@ -2494,8 +2561,8 @@
 
         card.querySelector("[data-thumb]").append(makeThumbnail(item));
         card.querySelector(".file-title strong").textContent = item.name;
-        const width = item.kind === "svg" ? item.width : item.original.width;
-        const height = item.kind === "svg" ? item.height : item.original.height;
+        const width = item.kind === "svg" ? item.width : item.outputWidth || item.original.width;
+        const height = item.kind === "svg" ? item.height : item.outputHeight || item.original.height;
         const meta = card.querySelector(".file-title span");
         meta.textContent = item.kind === "svg"
           ? `${width} x ${height} - SVG vectorial`
@@ -2570,7 +2637,7 @@
       function exportItem(item) {
         if (item.kind === "pdf-webp") {
           const ext = rasterFormatExtension(item.format);
-          downloadBlob(`${safeSvgName(item.name)}_${ext}.${ext}`, item.imageBlob || item.webpBlob);
+          downloadBlob(`${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo" : ""}_${ext}.${ext}`, item.imageBlob || item.webpBlob);
           return;
         }
         downloadText(`${safeSvgName(item.name)}${item.kind === "pdf-svg" ? "_svg" : "_morada"}.svg`, svgForItem(item));
@@ -2743,7 +2810,9 @@
       }
 
       function documentMeta(item) {
-        if (item.kind === "pdf-webp") return `Página ${item.pageNumber} de ${item.pages} - ${rasterFormatLabel(item.format)}`;
+        if (item.kind === "pdf-webp") {
+          return `Página ${item.pageNumber} de ${item.pages} - ${rasterFormatLabel(item.format)}${item.portalNexo ? " - PORTAL NEXO 759 x 427 px" : ""}`;
+        }
         if (item.kind === "pdf-color") return "PDF vectorial convertido a color";
         if (item.kind === "pdf-svg") return "PDF convertido a SVG editable";
         if (item.kind === "svg") return "SVG vectorial";
@@ -2826,9 +2895,11 @@
             return makePdfWebpItem({
               label: item.name,
               canvas: item.original,
+              outputCanvas: item.outputCanvas,
               pages: item.pages,
               pageNumber: item.pageNumber,
               format: item.format,
+              portalNexo: item.portalNexo,
               imageBlob: item.imageBlob || item.webpBlob,
             });
           }
@@ -2855,13 +2926,16 @@
           item.element.remove();
           disposeItem(item);
           if (item.kind !== "pdf-webp") return item;
+          const outputCanvas = state.settings.portalNexo ? canvasForPortalNexo(item.original) : item.original;
           return makePdfWebpItem({
             label: item.name,
             canvas: item.original,
+            outputCanvas,
             pages: item.pages,
             pageNumber: item.pageNumber,
             format: state.settings.rasterFormat,
-            imageBlob: await canvasToRasterBlob(item.original, state.settings.rasterFormat),
+            portalNexo: state.settings.portalNexo,
+            imageBlob: await canvasToRasterBlob(outputCanvas, state.settings.rasterFormat),
           });
         }));
         state.selectedId = state.items.find((item) => item.name === selectedName)?.id || state.items[0]?.id || null;
@@ -2930,8 +3004,9 @@
         els.controlsPanel.classList.toggle("is-disabled", pdfMode);
         els.rasterFormatRow.hidden = !webpMode;
         els.rasterFormatOut.textContent = rasterFormatLabel();
+        els.portalNexoToggle.checked = state.settings.portalNexo;
         els.modeNote.textContent = webpMode
-          ? `El PDF se renderiza con alta nitidez y cada pagina se descarga como ${rasterFormatLabel()}, manteniendo la apariencia y colores originales.`
+          ? `El PDF se renderiza con alta nitidez y cada pagina se descarga como ${rasterFormatLabel()}${state.settings.portalNexo ? " en formato PORTAL NEXO 759 x 427 px" : ""}, manteniendo la apariencia y colores originales.`
           : pdfMode
             ? "El PDF se convierte a SVG vectorial editable cuando el archivo conserva trazos/textos internos. Si el PDF contiene solo imagen escaneada, no hay vectores reales que extraer."
             : "Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.";
@@ -2968,6 +3043,16 @@
           }
         });
       }
+
+      els.portalNexoToggle.addEventListener("change", async () => {
+        state.settings.portalNexo = els.portalNexoToggle.checked;
+        refreshModeUi();
+        try {
+          await reencodePdfRasterItems();
+        } catch (error) {
+          showError("PORTAL NEXO", error);
+        }
+      });
 
       els.dropZone.addEventListener("dragover", (event) => {
         event.preventDefault();
