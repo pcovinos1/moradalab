@@ -1224,7 +1224,7 @@
                 <input id="portalNexoToggle" type="checkbox" />
                 <span>
                   <strong>PORTAL NEXO</strong>
-                  <span>Adaptar salida a 759 x 427 px</span>
+                  <span>Adaptar lamina completa a 759 x 427 px, sin recorte</span>
                 </span>
               </label>
             </div>
@@ -2238,7 +2238,7 @@
         if (item.kind === "pdf-webp") {
           const ext = rasterFormatExtension(item.format);
           return {
-            name: `${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo" : ""}_${ext}.${ext}`,
+            name: `${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo_full" : ""}_${ext}.${ext}`,
             blob: item.imageBlob || item.webpBlob,
           };
         }
@@ -2693,7 +2693,7 @@
       function exportItem(item) {
         if (item.kind === "pdf-webp") {
           const ext = rasterFormatExtension(item.format);
-          downloadBlob(`${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo" : ""}_${ext}.${ext}`, item.imageBlob || item.webpBlob);
+          downloadBlob(`${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo_full" : ""}_${ext}.${ext}`, item.imageBlob || item.webpBlob);
           return;
         }
         downloadText(`${safeSvgName(item.name)}${item.kind === "pdf-svg" ? "_svg" : "_morada"}.svg`, svgForItem(item));
