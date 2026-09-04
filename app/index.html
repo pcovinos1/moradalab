@@ -1042,7 +1042,11 @@
         grid-template-columns: 1fr;
       }
 
-      body:not(.has-files) aside,
+      body.mode-pdf-webp:not(.has-files) main {
+        grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+      }
+
+      body:not(.has-files):not(.mode-pdf-webp) aside,
       body:not(.has-files) .statusbar {
         display: none;
       }
@@ -1170,23 +1174,24 @@
                 </div>
               </div>
 
-              <div class="raster-format-row" id="rasterFormatRow" hidden>
-                <div class="control-head">
-                  <span>Formato de salida</span>
-                  <output id="rasterFormatOut">WEBP</output>
-                </div>
-                <div class="format-toggle" role="radiogroup" aria-label="Formato de salida para PDF">
-                  <label>
-                    <input type="radio" name="rasterFormat" value="webp" checked />
-                    WEBP
-                  </label>
-                  <label>
-                    <input type="radio" name="rasterFormat" value="jpg" />
-                    JPG
-                  </label>
-                </div>
-              </div>
             </details>
+
+            <div class="raster-format-row" id="rasterFormatRow" hidden>
+              <div class="control-head">
+                <span>Formato de salida</span>
+                <output id="rasterFormatOut">WEBP</output>
+              </div>
+              <div class="format-toggle" role="radiogroup" aria-label="Formato de salida para PDF">
+                <label>
+                  <input type="radio" name="rasterFormat" value="webp" checked />
+                  WEBP
+                </label>
+                <label>
+                  <input type="radio" name="rasterFormat" value="jpg" />
+                  JPG
+                </label>
+              </div>
+            </div>
 
             <p class="note" id="modeNote">
               Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.
@@ -2895,6 +2900,10 @@
       }
 
       function refreshModeUi() {
+        document.body.classList.toggle("mode-pdf-webp", state.mode === "pdf-webp");
+        document.body.classList.toggle("mode-pdf-svg", state.mode === "pdf-svg");
+        document.body.classList.toggle("mode-morada", state.mode === "morada");
+
         for (const tab of els.tabs) {
           const active = tab.dataset.mode === state.mode;
           tab.classList.toggle("active", active);
