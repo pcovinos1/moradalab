@@ -1261,7 +1261,7 @@
       const TARGET = { r: 92, g: 36, b: 131, hex: "#5c2483" };
       const MAX_PREVIEW_EDGE = 2200;
       const DPI_SCALE = 2.4;
-      const PORTAL_NEXO_SIZE = { width: 1192, height: 843, dpi: 300 };
+      const PORTAL_NEXO_SIZE = { width: 1192, height: 843, dpi: 300, renderScale: 2 };
 
       const state = {
         items: [],
@@ -1687,42 +1687,68 @@
       async function canvasesFromPdf(file, options = {}) {
         const includeVector = options.includeVector !== false;
         const removeLegendMeasurements = options.removeLegendMeasurements === true;
+        const fitTo = options.fitTo || null;
+        const onlyPageNumber = options.pageNumber || null;
         const pdfjs = await setupPdf();
         const data = await file.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data }).promise;
         const pages = [];
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          if (onlyPageNumber && pageNumber !== onlyPageNumber) continue;
           const page = await pdf.getPage(pageNumber);
           const base = page.getViewport({ scale: 1 });
-          const scale = Math.min(DPI_SCALE, MAX_PREVIEW_EDGE / Math.max(base.width, base.height));
+          const renderScale = fitTo?.renderScale || 1;
+          const targetWidth = fitTo ? fitTo.width * renderScale : null;
+          const targetHeight = fitTo ? fitTo.height * renderScale : null;
+          const scale = fitTo
+            ? Math.min(targetWidth / base.width, targetHeight / base.height)
+            : Math.min(DPI_SCALE, MAX_PREVIEW_EDGE / Math.max(base.width, base.height));
           const viewport = page.getViewport({ scale });
           const canvas = document.createElement("canvas");
-          canvas.width = Math.round(viewport.width);
-          canvas.height = Math.round(viewport.height);
+          canvas.width = fitTo ? targetWidth : Math.round(viewport.width);
+          canvas.height = fitTo ? targetHeight : Math.round(viewport.height);
           const ctx = canvas.getContext("2d", { willReadFrequently: true });
           ctx.fillStyle = "#fff";
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          await page.render({ canvasContext: ctx, viewport }).promise;
-          if (removeLegendMeasurements) await eraseLegendMeasurements(page, viewport, ctx);
+          const offset = fitTo
+            ? {
+                x: (canvas.width - viewport.width) / 2,
+                y: (canvas.height - viewport.height) / 2,
+              }
+            : { x: 0, y: 0 };
+          const renderParams = { canvasContext: ctx, viewport };
+          if (offset.x || offset.y) renderParams.transform = [1, 0, 0, 1, offset.x, offset.y];
+          await page.render(renderParams).promise;
+          if (removeLegendMeasurements) await eraseLegendMeasurements(page, viewport, ctx, offset, canvas);
+          let outputCanvas = canvas;
+          if (fitTo && renderScale > 1) {
+            outputCanvas = downsampleCanvas(canvas, fitTo.width, fitTo.height);
+            sharpenCanvas(outputCanvas, 0.18);
+          }
           const label = `${file.name} - pagina ${pageNumber}`;
           const vectorSvg = includeVector ? await svgFromPdfPage(pdfjs, page, viewport, label) : "";
-          pages.push({ canvas, label, vectorSvg });
+          pages.push({ canvas: outputCanvas, label, vectorSvg });
         }
         return pages;
       }
 
       async function webpFromPdf(file) {
-        const pages = await canvasesFromPdf(file, { includeVector: false, removeLegendMeasurements: true });
+        const pages = await canvasesFromPdf(file, {
+          includeVector: false,
+          removeLegendMeasurements: true,
+          fitTo: state.settings.portalNexo ? PORTAL_NEXO_SIZE : null,
+        });
         if (!pages.length) throw new Error("El PDF no tiene paginas para convertir.");
         const multiple = pages.length > 1;
         const format = state.settings.rasterFormat;
         return Promise.all(pages.map(async (page, index) => {
-          const outputCanvas = state.settings.portalNexo ? canvasForPortalNexo(page.canvas) : page.canvas;
+          const outputCanvas = page.canvas;
           return {
             kind: "pdf-webp",
             label: multiple ? `${file.name} - pagina ${index + 1}` : file.name,
             canvas: page.canvas,
             outputCanvas,
+            pdfFile: file,
             pageNumber: index + 1,
             pages: pages.length,
             format,
@@ -1732,12 +1758,13 @@
         }));
       }
 
-      async function eraseLegendMeasurements(page, viewport, ctx) {
+      async function eraseLegendMeasurements(page, viewport, ctx, offset = { x: 0, y: 0 }, canvas = null) {
         const textContent = await page.getTextContent();
+        const height = canvas?.height || viewport.height;
         const textItems = textContent.items
           .filter((item) => item.str && item.str.trim())
-          .map((item) => textItemBox(viewport, item))
-          .filter((item) => item.y > viewport.height * 0.72);
+          .map((item) => textItemBox(viewport, item, offset))
+          .filter((item) => item.y > height * 0.72);
         const boxes = measurementBoxes(textItems);
 
         ctx.save();
@@ -1755,15 +1782,15 @@
         ctx.restore();
       }
 
-      function textItemBox(viewport, item) {
+      function textItemBox(viewport, item, offset = { x: 0, y: 0 }) {
         const transform = multiplyMatrix(viewport.transform, item.transform);
         const fontSize = Math.max(1, Math.hypot(transform[2], transform[3]));
         const width = Math.max(item.width * viewport.scale, item.str.length * fontSize * 0.42);
         const height = Math.max(item.height ? item.height * viewport.scale : 0, fontSize);
         return {
           str: item.str.trim(),
-          x: transform[4],
-          y: transform[5] - height,
+          x: transform[4] + offset.x,
+          y: transform[5] + offset.y - height,
           width,
           height,
         };
@@ -2550,6 +2577,7 @@
           kind: "pdf-webp",
           name: page.label,
           original: page.canvas,
+          pdfFile: page.pdfFile || null,
           outputCanvas,
           outputWidth: outputCanvas.width,
           outputHeight: outputCanvas.height,
@@ -2978,6 +3006,7 @@
               label: item.name,
               canvas: item.original,
               outputCanvas: item.outputCanvas,
+              pdfFile: item.pdfFile,
               pages: item.pages,
               pageNumber: item.pageNumber,
               format: item.format,
@@ -3008,11 +3037,25 @@
           item.element.remove();
           disposeItem(item);
           if (item.kind !== "pdf-webp") return item;
-          const outputCanvas = state.settings.portalNexo ? canvasForPortalNexo(item.original) : item.original;
+          let sourceCanvas = item.original;
+          let outputCanvas = state.settings.portalNexo ? canvasForPortalNexo(item.original) : item.original;
+          if (item.pdfFile) {
+            const pages = await canvasesFromPdf(item.pdfFile, {
+              includeVector: false,
+              removeLegendMeasurements: true,
+              fitTo: state.settings.portalNexo ? PORTAL_NEXO_SIZE : null,
+              pageNumber: item.pageNumber,
+            });
+            if (pages[0]) {
+              sourceCanvas = pages[0].canvas;
+              outputCanvas = pages[0].canvas;
+            }
+          }
           return makePdfWebpItem({
             label: item.name,
-            canvas: item.original,
+            canvas: sourceCanvas,
             outputCanvas,
+            pdfFile: item.pdfFile,
             pages: item.pages,
             pageNumber: item.pageNumber,
             format: state.settings.rasterFormat,
