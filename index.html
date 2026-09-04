@@ -1461,26 +1461,11 @@
           (full, prefix, property, value) => {
             const important = /\s*!important\s*$/i.test(value);
             const cleanValue = value.replace(/\s*!important\s*$/i, "").trim();
-            if (isPreservedCssPaint(cleanValue) || /^url\(/i.test(cleanValue)) return full;
+            if (!isBlackCssColor(cleanValue) || /^url\(/i.test(cleanValue)) return full;
             matches += 1;
             return `${prefix}${property}${purpleToneForCssPaint(cleanValue)}${important ? " !important" : ""}`;
           },
         );
-
-        updated = updated.replace(
-          /(^|[;{\s])(stroke-width\s*:\s*)([^;}\n]+)/gi,
-          (full, prefix, property, value) => {
-            const important = /\s*!important\s*$/i.test(value);
-            matches += 1;
-            return `${prefix}${property}0.5pt${important ? " !important" : ""}`;
-          },
-        );
-
-        updated = updated.replace(/([^{}]+{)([^{}]*\bstroke\s*:\s*#5c2483[^{}]*)(})/gi, (full, start, body, end) => {
-          if (/\bstroke-width\s*:/i.test(body)) return full;
-          matches += 1;
-          return `${start}${body}\n        stroke-width: 0.5pt;${end}`;
-        });
 
         return { text: updated, matches };
       }
@@ -1537,20 +1522,7 @@
             } else if (value && value.trim().toLowerCase() === "currentcolor" && !hasDeclaredPaint(node, "color", documentSvg) && !hasAncestorDeclaredPaint(node, "color", documentSvg)) {
               node.setAttribute(attribute, TARGET.hex);
               changed += 1;
-            } else if (value && !isPreservedCssPaint(value) && !/^url\(/i.test(value.trim())) {
-              node.setAttribute(attribute, purpleToneForCssPaint(value));
-              changed += 1;
             }
-          }
-
-          if (node.hasAttribute("stroke") && !isPreservedCssPaint(node.getAttribute("stroke") || "")) {
-            node.setAttribute("stroke-width", "0.5pt");
-            changed += 1;
-          }
-
-          if (node.hasAttribute("stroke-width")) {
-            node.setAttribute("stroke-width", "0.5pt");
-            changed += 1;
           }
 
           if (node.hasAttribute("style")) {
@@ -1689,6 +1661,7 @@
         const removeLegendMeasurements = options.removeLegendMeasurements === true;
         const fitTo = options.fitTo || null;
         const onlyPageNumber = options.pageNumber || null;
+        const normalizeVectorWidth = options.normalizeVectorWidth !== false;
         const pdfjs = await setupPdf();
         const data = await file.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data }).promise;
@@ -1726,7 +1699,7 @@
             sharpenCanvas(outputCanvas, 0.18);
           }
           const label = `${file.name} - pagina ${pageNumber}`;
-          const vectorSvg = includeVector ? await svgFromPdfPage(pdfjs, page, viewport, label) : "";
+          const vectorSvg = includeVector ? await svgFromPdfPage(pdfjs, page, viewport, label, { normalizeLineWidth: normalizeVectorWidth }) : "";
           pages.push({ canvas: outputCanvas, label, vectorSvg });
         }
         return pages;
@@ -1839,10 +1812,10 @@
         return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
       }
 
-      async function svgFromPdfPage(pdfjs, page, viewport, label) {
+      async function svgFromPdfPage(pdfjs, page, viewport, label, options = {}) {
         const nativeSvg = await svgFromPdfGraphics(pdfjs, page, viewport);
         if (nativeSvg) return normalizePdfSvg(nativeSvg, label);
-        return svgFromPdfOperators(pdfjs, page, viewport, label);
+        return svgFromPdfOperators(pdfjs, page, viewport, label, options);
       }
 
       async function svgFromPdfGraphics(pdfjs, page, viewport) {
@@ -1910,10 +1883,11 @@
         }
       }
 
-      async function svgFromPdfOperators(pdfjs, page, viewport, label) {
+      async function svgFromPdfOperators(pdfjs, page, viewport, label, options = {}) {
         const operatorList = await page.getOperatorList();
         const textContent = await page.getTextContent();
         const ops = pdfjs.OPS || {};
+        const normalizeLineWidth = options.normalizeLineWidth !== false;
         const paths = [];
         const stateStack = [];
         const state = {
@@ -1927,13 +1901,17 @@
         const appendPath = (paint) => {
           if (!state.currentPath.trim()) return;
           const transform = multiplyMatrix(viewport.transform, state.ctm);
+          const strokeWidth = normalizeLineWidth
+            ? "0.5pt"
+            : roundSvg(Math.max(0.35, (Number(state.lineWidth) || 1) * viewport.scale));
+          const strokeAttrs = `stroke-width="${strokeWidth}" vector-effect="non-scaling-stroke"`;
           const attrs = paint === "stroke"
-            ? `fill="none" stroke="${state.stroke}" stroke-width="0.5pt" vector-effect="non-scaling-stroke"`
+            ? `fill="none" stroke="${state.stroke}" ${strokeAttrs}`
             : paint === "fill"
               ? `fill="${state.fill}" stroke="none"`
               : isWhiteCssPaint(state.fill) && isWhiteCssPaint(state.stroke)
                 ? `fill="${state.fill}" stroke="none"`
-                : `fill="${state.fill}" stroke="${state.stroke}" stroke-width="0.5pt" vector-effect="non-scaling-stroke"`;
+                : `fill="${state.fill}" stroke="${state.stroke}" ${strokeAttrs}`;
           paths.push(`<path d="${state.currentPath.trim()}" ${attrs} transform="${matrixToSvg(transform)}"/>`);
           state.currentPath = "";
         };
@@ -2020,7 +1998,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(viewport.width)}" height="${Math.round(viewport.height)}" viewBox="0 0 ${roundSvg(viewport.width)} ${roundSvg(viewport.height)}">
   <title>${escapeXml(label)}</title>
   <rect x="0" y="0" width="100%" height="100%" fill="#fff"/>
-  <g id="pdf-vectores" fill="#000" stroke="#000" stroke-width="0.5pt" vector-effect="non-scaling-stroke">
+  <g id="pdf-vectores" fill="#000" stroke="#000" stroke-width="${normalizeLineWidth ? "0.5pt" : roundSvg(Math.max(0.35, viewport.scale))}" vector-effect="non-scaling-stroke">
     ${paths.join("\n    ")}
   </g>
   <g id="pdf-textos" fill="#000">
@@ -2188,6 +2166,31 @@
           runs: mergeVerticalRuns(runs),
           blackPixels,
         };
+      }
+
+      function canvasHasColorContent(canvas) {
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        const { width, height } = canvas;
+        const data = ctx.getImageData(0, 0, width, height).data;
+        let colored = 0;
+        const step = Math.max(1, Math.floor(Math.sqrt((width * height) / 70000)));
+        for (let y = 0; y < height; y += step) {
+          for (let x = 0; x < width; x += step) {
+            const i = (y * width + x) * 4;
+            if (data[i + 3] < 32) continue;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const chroma = max - min;
+            if (max > 245 && min > 245) continue;
+            if (max < 70 && chroma < 24) continue;
+            if (chroma > 16) colored += 1;
+            if (colored > 80) return true;
+          }
+        }
+        return false;
       }
 
       function mergeVerticalRuns(runs) {
@@ -2779,7 +2782,7 @@
             const pages = state.mode === "pdf-webp" && isPdf
               ? await webpFromPdf(file)
               : isPdf
-                ? await canvasesFromPdf(file)
+                ? await canvasesFromPdf(file, { normalizeVectorWidth: state.mode === "pdf-svg" })
                 : fileType === "image/svg+xml" || /\.svg$/i.test(file.name)
                   ? await svgFromFile(file)
                   : await canvasFromImage(file);
@@ -2790,7 +2793,7 @@
                   ? makePdfWebpItem(page)
                   : page.kind === "svg"
                     ? makeSvgItem(page)
-                    : page.vectorSvg
+                    : page.vectorSvg && !canvasHasColorContent(page.canvas)
                       ? makePdfColorItem(page.label, page.canvas, page.vectorSvg)
                       : makeItem(page.label, page.canvas);
               state.items.push(item);
