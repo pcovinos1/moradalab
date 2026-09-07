@@ -1122,7 +1122,7 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
               </svg>
-              Cambiar color
+              PLANOS A COLOR
             </button>
             <button class="tab" id="pdfSvgTab" type="button" role="tab" aria-selected="false" data-mode="pdf-svg">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1540,21 +1540,6 @@
             styleNode.textContent = result.text;
             changed += result.matches;
           }
-        }
-
-        for (const node of documentSvg.querySelectorAll("text, tspan, textPath")) {
-          if (hasDeclaredPaint(node, "fill", documentSvg) || hasAncestorDeclaredPaint(node, "fill", documentSvg)) continue;
-          node.setAttribute("fill", TARGET.hex);
-          changed += 1;
-        }
-
-        for (const node of documentSvg.querySelectorAll("path, rect, circle, ellipse, polygon")) {
-          if (!isImplicitFilledShape(node)) continue;
-          if (isInsideNonRenderingContainer(node)) continue;
-          if (hasDeclaredPaint(node, "fill", documentSvg) || hasAncestorDeclaredPaint(node, "fill", documentSvg)) continue;
-          if (hasDeclaredPaint(node, "stroke", documentSvg) || hasAncestorDeclaredPaint(node, "stroke", documentSvg)) continue;
-          node.setAttribute("fill", TARGET.hex);
-          changed += 1;
         }
 
         if (!svg.getAttribute("xmlns")) {
