@@ -166,7 +166,7 @@
 
       .tabs {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 6px;
         margin-bottom: 14px;
         padding: 4px;
@@ -176,15 +176,41 @@
       }
 
       .tab {
-        min-height: 36px;
+        min-height: 52px;
         border-radius: 6px;
         background: transparent;
         color: var(--muted);
         display: inline-flex;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         gap: 8px;
         font-size: 13px;
+        text-align: left;
+      }
+
+      .tab > svg {
+        flex: 0 0 auto;
+      }
+
+      .tab-copy {
+        min-width: 0;
+        display: grid;
+        gap: 2px;
+      }
+
+      .tab-title {
+        color: currentColor;
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.15;
+      }
+
+      .tab-description {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1.2;
+        white-space: normal;
       }
 
       .tab.active {
@@ -653,8 +679,8 @@
       }
 
       .tab {
-        min-height: 34px;
-        padding: 0 12px;
+        min-height: 54px;
+        padding: 7px 10px;
         transition: background 180ms ease, color 180ms ease, box-shadow 180ms ease;
       }
 
@@ -1071,11 +1097,12 @@
         grid-template-columns: 1fr;
       }
 
-      body.mode-pdf-webp:not(.has-files) main {
+      body.mode-pdf-webp:not(.has-files) main,
+      body.mode-pdf-a3:not(.has-files) main {
         grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
       }
 
-      body:not(.has-files):not(.mode-pdf-webp) aside,
+      body:not(.has-files):not(.mode-pdf-webp):not(.mode-pdf-a3) aside,
       body:not(.has-files) .statusbar {
         display: none;
       }
@@ -1092,6 +1119,10 @@
       }
 
       @media (max-width: 720px) {
+        .tabs {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
         main {
           grid-template-columns: 1fr;
         }
@@ -1122,14 +1153,20 @@
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M12 3 4 7v10l8 4 8-4V7l-8-4Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
               </svg>
-              PLANOS A COLOR
+              <span class="tab-copy">
+                <span class="tab-title">PLANOS A COLOR</span>
+                <span class="tab-description">Cambia negro a morado</span>
+              </span>
             </button>
             <button class="tab" id="pdfSvgTab" type="button" role="tab" aria-selected="false" data-mode="pdf-svg">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                 <path d="M7 3h7l5 5v13H7V3Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
                 <path d="M14 3v5h5M10 15h4M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               </svg>
-              PDF -> SVG
+              <span class="tab-copy">
+                <span class="tab-title">PDF -&gt; SVG</span>
+                <span class="tab-description">Convierte PDF a vector editable</span>
+              </span>
             </button>
             <button class="tab" id="pdfWebpTab" type="button" role="tab" aria-selected="false" data-mode="pdf-webp">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1137,7 +1174,20 @@
                 <path d="m8 15 2.5-3 2 2.3 1.5-1.8L17 16H8Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
                 <path d="M9 8h.01" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
               </svg>
-              PDF -> WEBP
+              <span class="tab-copy">
+                <span class="tab-title">PDF -&gt; WEBP</span>
+                <span class="tab-description">Exporta PDF como WEBP o JPG</span>
+              </span>
+            </button>
+            <button class="tab" id="pdfA3Tab" type="button" role="tab" aria-selected="false" data-mode="pdf-a3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M4 5h16v14H4V5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+                <path d="M8 9h8M8 12h5M15 12l2 2M17 12l-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <span class="tab-copy">
+                <span class="tab-title">PDF A3</span>
+                <span class="tab-description">Elimina medidas entre parentesis</span>
+              </span>
             </button>
           </div>
           <div class="header-actions">
@@ -1644,6 +1694,7 @@
       async function canvasesFromPdf(file, options = {}) {
         const includeVector = options.includeVector !== false;
         const removeLegendMeasurements = options.removeLegendMeasurements === true;
+        const removeAllMeasurements = options.removeAllMeasurements === true;
         const fitTo = options.fitTo || null;
         const onlyPageNumber = options.pageNumber || null;
         const normalizeVectorWidth = options.normalizeVectorWidth !== false;
@@ -1677,7 +1728,9 @@
           const renderParams = { canvasContext: ctx, viewport };
           if (offset.x || offset.y) renderParams.transform = [1, 0, 0, 1, offset.x, offset.y];
           await page.render(renderParams).promise;
-          if (removeLegendMeasurements) await eraseLegendMeasurements(page, viewport, ctx, offset, canvas);
+          if (removeLegendMeasurements || removeAllMeasurements) {
+            await eraseLegendMeasurements(page, viewport, ctx, offset, canvas, { allPage: removeAllMeasurements });
+          }
           let outputCanvas = canvas;
           if (fitTo && renderScale > 1) {
             outputCanvas = downsampleCanvas(canvas, fitTo.width, fitTo.height);
@@ -1685,7 +1738,7 @@
           }
           const label = `${file.name} - pagina ${pageNumber}`;
           const vectorSvg = includeVector ? await svgFromPdfPage(pdfjs, page, viewport, label, { normalizeLineWidth: normalizeVectorWidth }) : "";
-          pages.push({ canvas: outputCanvas, label, vectorSvg });
+          pages.push({ canvas: outputCanvas, label, vectorSvg, pageWidth: base.width, pageHeight: base.height });
         }
         return pages;
       }
@@ -1716,13 +1769,34 @@
         }));
       }
 
-      async function eraseLegendMeasurements(page, viewport, ctx, offset = { x: 0, y: 0 }, canvas = null) {
+      async function a3FromPdf(file) {
+        const pages = await canvasesFromPdf(file, {
+          includeVector: false,
+          removeAllMeasurements: true,
+          normalizeVectorWidth: false,
+        });
+        if (!pages.length) throw new Error("El PDF no tiene paginas para limpiar.");
+        const multiple = pages.length > 1;
+        return Promise.all(pages.map(async (page, index) => {
+          const pdfBlob = await canvasToPdfBlob(page.canvas, page.pageWidth || page.canvas.width, page.pageHeight || page.canvas.height);
+          return {
+            kind: "pdf-a3",
+            label: multiple ? `${file.name} - pagina ${index + 1}` : file.name,
+            canvas: page.canvas,
+            pdfBlob,
+            pageNumber: index + 1,
+            pages: pages.length,
+          };
+        }));
+      }
+
+      async function eraseLegendMeasurements(page, viewport, ctx, offset = { x: 0, y: 0 }, canvas = null, options = {}) {
         const textContent = await page.getTextContent();
         const height = canvas?.height || viewport.height;
         const textItems = textContent.items
           .filter((item) => item.str && item.str.trim())
-          .map((item) => textItemBox(viewport, item, offset))
-          .filter((item) => item.y > height * 0.72);
+          .map((item) => textItemBox(viewport, item, offset, textContent.styles?.[item.fontName]))
+          .filter((item) => options.allPage || item.y > height * 0.72);
         const boxes = measurementBoxes(textItems);
 
         ctx.save();
@@ -1730,20 +1804,25 @@
         for (const box of boxes) {
           const padX = Math.max(3, box.height * 0.28);
           const padY = Math.max(2, box.height * 0.22);
+          const padLeft = box.protectLeadingText ? (box.leadingErasePad || 0) : padX;
+          const padRight = padX;
+          const eraseX = box.protectLeadingText && !padLeft ? Math.ceil(box.x) : Math.floor(box.x - padLeft);
           ctx.fillRect(
-            Math.floor(box.x - padX),
+            eraseX,
             Math.floor(box.y - padY),
-            Math.ceil(box.width + padX * 2),
+            Math.ceil(box.width + padLeft + padRight),
             Math.ceil(box.height + padY * 2),
           );
         }
         ctx.restore();
       }
 
-      function textItemBox(viewport, item, offset = { x: 0, y: 0 }) {
+      function textItemBox(viewport, item, offset = { x: 0, y: 0 }, fontStyle = {}) {
         const transform = multiplyMatrix(viewport.transform, item.transform);
         const fontSize = Math.max(1, Math.hypot(transform[2], transform[3]));
-        const width = Math.max(item.width * viewport.scale, item.str.length * fontSize * 0.42);
+        const width = item.width > 0
+          ? item.width * viewport.scale
+          : item.str.length * fontSize * 0.42;
         const height = Math.max(item.height ? item.height * viewport.scale : 0, fontSize);
         return {
           str: item.str.trim(),
@@ -1751,6 +1830,7 @@
           y: transform[5] + offset.y - height,
           width,
           height,
+          fontFamily: fontStyle?.fontFamily || "sans-serif",
         };
       }
 
@@ -1762,6 +1842,16 @@
             boxes.push(item);
             continue;
           }
+          const inlineBox = inlineMeasurementBox(item);
+          if (inlineBox) {
+            boxes.push(inlineBox);
+            continue;
+          }
+          const encodedBox = encodedMeasurementBox(item);
+          if (encodedBox) {
+            boxes.push(encodedBox);
+            continue;
+          }
           if (!isMeasurementStart(item.str)) continue;
           const next = items[index + 1];
           const end = items[index + 2];
@@ -1771,6 +1861,84 @@
           index += 2;
         }
         return boxes;
+      }
+
+      function inlineMeasurementBox(item) {
+        const match = item.str.match(/\(\s*\d+(?:[.,]\d+)?\s*x\s*\d+(?:[.,]\d+)?\s*\)/i);
+        if (!match || match.index === undefined || isFullMeasurement(item.str)) return null;
+        const startRatio = textWidthRatio(item.str, match.index, item.fontFamily);
+        const endRatio = textWidthRatio(item.str, match.index + match[0].length, item.fontFamily);
+        const x = item.x + item.width * startRatio;
+        const width = item.width * (endRatio - startRatio);
+        return {
+          str: match[0],
+          x,
+          y: item.y,
+          width,
+          height: item.height,
+          protectLeadingText: true,
+        };
+      }
+
+      function encodedMeasurementBox(item) {
+        const match = item.str.match(/[\d\u0010-\u001f]+\s*\[\s*[\d\u0010-\u001f]+\s*$/);
+        if (!match || match.index === undefined) return null;
+        const prefix = item.str.slice(0, match.index);
+        const decodedMeasurement = match[0]
+          .replace(/\u0011/g, ".")
+          .replace(/\u0018/g, "5")
+          .replace(/\u0016/g, "3")
+          .replace(/\[/g, "x")
+          .replace(/[\u0010-\u001f]/g, "0");
+        const reconstructed = `${prefix}(${decodedMeasurement})`;
+        const startRatio = textWidthRatio(reconstructed, prefix.length, item.fontFamily);
+        const x = item.x + item.width * startRatio;
+        return {
+          str: match[0],
+          x,
+          y: item.y,
+          width: Math.max(0, item.x + item.width - x),
+          height: item.height,
+          protectLeadingText: true,
+          leadingErasePad: Math.max(1, Math.min(3, item.height * 0.08)),
+        };
+      }
+
+      function textWidthRatio(text, charIndex, fontFamily = "sans-serif") {
+        const safeText = text || "";
+        const measureContext = getTextMeasureContext();
+        if (measureContext) {
+          measureContext.font = `100px ${fontFamily}`;
+          const totalWidth = measureContext.measureText(safeText).width;
+          if (totalWidth > 0) {
+            return measureContext.measureText(safeText.slice(0, charIndex)).width / totalWidth;
+          }
+        }
+        const total = estimateTextUnits(safeText);
+        if (!total) return 0;
+        return estimateTextUnits(safeText.slice(0, charIndex)) / total;
+      }
+
+      let textMeasureContext = null;
+      function getTextMeasureContext() {
+        if (textMeasureContext) return textMeasureContext;
+        const canvas = document.createElement("canvas");
+        textMeasureContext = canvas.getContext("2d");
+        return textMeasureContext;
+      }
+
+      function estimateTextUnits(text) {
+        let units = 0;
+        for (const char of text) {
+          if (char === " ") units += 0.34;
+          else if (/[0-9]/.test(char)) units += 0.58;
+          else if (/[.,]/.test(char)) units += 0.24;
+          else if (/[()]/.test(char)) units += 0.32;
+          else if (/x/i.test(char)) units += 0.52;
+          else if (/[A-ZÁÉÍÓÚÑ]/.test(char)) units += 0.72;
+          else units += 0.62;
+        }
+        return units;
       }
 
       function isFullMeasurement(value) {
@@ -2245,11 +2413,17 @@
         }
         const files = await Promise.all(state.items.map(itemToDownloadFile));
         const zipBlob = await createZip(files);
-        const suffix = state.mode === "pdf-webp" ? rasterFormatExtension() : state.mode === "pdf-svg" ? "svg" : "morada";
+        const suffix = state.mode === "pdf-webp" ? rasterFormatExtension() : state.mode === "pdf-a3" ? "pdf_a3" : state.mode === "pdf-svg" ? "svg" : "morada";
         downloadBlob(`morada_planos_${suffix}.zip`, zipBlob);
       }
 
       async function itemToDownloadFile(item) {
+        if (item.kind === "pdf-a3") {
+          return {
+            name: `${safeSvgName(item.name)}_sin_medidas.pdf`,
+            blob: item.pdfBlob,
+          };
+        }
         if (item.kind === "pdf-webp") {
           const ext = rasterFormatExtension(item.format);
           return {
@@ -2398,6 +2572,63 @@
             resolve(format === "jpg" ? await setJpegDpi(blob, PORTAL_NEXO_SIZE.dpi) : blob);
           }, rasterFormatMime(format), format === "jpg" ? 0.98 : 0.96);
         });
+      }
+
+      async function canvasToPdfBlob(canvas, pageWidth, pageHeight) {
+        const jpegBlob = await new Promise((resolve, reject) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Este navegador no pudo generar el PDF limpio."));
+          }, "image/jpeg", 0.98);
+        });
+        const jpegBytes = new Uint8Array(await jpegBlob.arrayBuffer());
+        return buildSingleImagePdf(
+          jpegBytes,
+          Math.round(pageWidth),
+          Math.round(pageHeight),
+          canvas.width,
+          canvas.height,
+        );
+      }
+
+      function buildSingleImagePdf(jpegBytes, pageWidth, pageHeight, imageWidth, imageHeight) {
+        const encoder = new TextEncoder();
+        const parts = [];
+        const offsets = [0];
+        let length = 0;
+        const push = (part) => {
+          const bytes = typeof part === "string" ? encoder.encode(part) : part;
+          parts.push(bytes);
+          length += bytes.length;
+        };
+        const addObject = (id, bodyParts) => {
+          offsets[id] = length;
+          push(`${id} 0 obj\n`);
+          for (const part of bodyParts) push(part);
+          push("\nendobj\n");
+        };
+
+        push("%PDF-1.4\n%\\xff\\xff\\xff\\xff\n");
+        addObject(1, ["<< /Type /Catalog /Pages 2 0 R >>"]);
+        addObject(2, ["<< /Type /Pages /Kids [3 0 R] /Count 1 >>"]);
+        addObject(3, [
+          `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`,
+        ]);
+        addObject(4, [
+          `<< /Type /XObject /Subtype /Image /Width ${imageWidth} /Height ${imageHeight} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`,
+          jpegBytes,
+          "\nendstream",
+        ]);
+        const content = `q\n${pageWidth} 0 0 ${pageHeight} 0 0 cm\n/Im0 Do\nQ\n`;
+        addObject(5, [`<< /Length ${content.length} >>\nstream\n${content}endstream`]);
+
+        const xrefOffset = length;
+        push("xref\n0 6\n0000000000 65535 f \n");
+        for (let id = 1; id <= 5; id += 1) {
+          push(`${String(offsets[id]).padStart(10, "0")} 00000 n \n`);
+        }
+        push(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+        return new Blob(parts, { type: "application/pdf" });
       }
 
       async function setJpegDpi(blob, dpi) {
@@ -2584,6 +2815,27 @@
         return item;
       }
 
+      function makePdfA3Item(page) {
+        const pdfUrl = URL.createObjectURL(page.pdfBlob);
+        const item = {
+          id: uid(),
+          kind: "pdf-a3",
+          name: page.label,
+          original: page.canvas,
+          outputCanvas: page.canvas,
+          outputWidth: page.canvas.width,
+          outputHeight: page.canvas.height,
+          pdfBlob: page.pdfBlob,
+          pdfUrl,
+          pages: page.pages,
+          pageNumber: page.pageNumber,
+          blackPixels: 1,
+          element: null,
+        };
+        item.element = renderItem(item);
+        return item;
+      }
+
       function makeSvgItem(page) {
         const item = {
           id: uid(),
@@ -2668,6 +2920,8 @@
             ? `${width} x ${height}px - PDF vectorial a color`
           : item.kind === "pdf-svg"
             ? `${width} x ${height}px - PDF vectorial editable`
+            : item.kind === "pdf-a3"
+              ? `${width} x ${height}px - PDF A3 sin medidas`
             : item.kind === "pdf-webp"
               ? `${width} x ${height}px - ${rasterFormatLabel(item.format)} pagina ${item.pageNumber} de ${item.pages}`
               : `${width} x ${height}px`;
@@ -2678,13 +2932,15 @@
           meta.after(warning);
         }
         const paneStats = card.querySelectorAll(".pane-label span:last-child");
-        paneStats[0].textContent = item.kind === "pdf-svg" || item.kind === "pdf-webp" ? "PDF" : "Original";
+        paneStats[0].textContent = item.kind === "pdf-svg" || item.kind === "pdf-webp" || item.kind === "pdf-a3" ? "PDF" : "Original";
         paneStats[1].textContent = item.kind === "svg"
           ? `${item.changed.toLocaleString("es")} elementos ajustados`
           : item.kind === "pdf-color"
             ? `${item.blackPixels.toLocaleString("es")} vectores morados`
           : item.kind === "pdf-svg"
             ? `${item.blackPixels.toLocaleString("es")} vectores/textos`
+            : item.kind === "pdf-a3"
+              ? "PDF limpio listo"
             : item.kind === "pdf-webp"
               ? `Imagen ${rasterFormatLabel(item.format)} lista`
               : `${item.processed.blackPixels.toLocaleString("es")} px negros`;
@@ -2695,13 +2951,15 @@
             ? previewFromSvg(item.convertedSvg)
           : item.kind === "pdf-svg"
             ? previewFromSvg(item.vectorSvg)
+            : item.kind === "pdf-a3"
+              ? cloneCanvas(item.outputCanvas)
             : item.kind === "pdf-webp"
               ? previewFromWebp(item.imageUrl || item.webpUrl)
               : cloneCanvas(item.processed.converted);
         card.querySelector('[data-slot="before"]').append(before);
         card.querySelector('[data-slot="after"]').append(after);
         const exportLabel = card.querySelector("[data-export-label]");
-        if (exportLabel) exportLabel.textContent = item.kind === "pdf-webp" ? rasterFormatLabel(item.format) : "SVG";
+        if (exportLabel) exportLabel.textContent = item.kind === "pdf-webp" ? rasterFormatLabel(item.format) : item.kind === "pdf-a3" ? "PDF" : "SVG";
         card.addEventListener("click", () => selectItem(item.id));
         const exportButton = card.querySelector('[data-action="export"]');
         if (exportButton) exportButton.addEventListener("click", () => exportItem(item));
@@ -2733,6 +2991,10 @@
       }
 
       function exportItem(item) {
+        if (item.kind === "pdf-a3") {
+          downloadBlob(`${safeSvgName(item.name)}_sin_medidas.pdf`, item.pdfBlob);
+          return;
+        }
         if (item.kind === "pdf-webp") {
           const ext = rasterFormatExtension(item.format);
           downloadBlob(`${safeSvgName(item.name)}${item.portalNexo ? "_portal_nexo_full" : ""}_${ext}.${ext}`, item.imageBlob || item.webpBlob);
@@ -2744,12 +3006,13 @@
       function disposeItem(item) {
         if (item.imageUrl) URL.revokeObjectURL(item.imageUrl);
         if (item.webpUrl && item.webpUrl !== item.imageUrl) URL.revokeObjectURL(item.webpUrl);
+        if (item.pdfUrl) URL.revokeObjectURL(item.pdfUrl);
       }
 
       async function handleFiles(fileList) {
         const files = [...fileList].filter((file) => {
           const type = file.type.toLowerCase();
-          if (state.mode === "pdf-svg" || state.mode === "pdf-webp") {
+          if (state.mode === "pdf-svg" || state.mode === "pdf-webp" || state.mode === "pdf-a3") {
             return type === "application/pdf" || /\.pdf$/i.test(file.name);
           }
           return type === "application/pdf" ||
@@ -2766,16 +3029,20 @@
             const isPdf = fileType === "application/pdf" || /\.pdf$/i.test(file.name);
             const pages = state.mode === "pdf-webp" && isPdf
               ? await webpFromPdf(file)
-              : isPdf
-                ? await canvasesFromPdf(file, { normalizeVectorWidth: state.mode === "pdf-svg" })
-                : fileType === "image/svg+xml" || /\.svg$/i.test(file.name)
-                  ? await svgFromFile(file)
-                  : await canvasFromImage(file);
+              : state.mode === "pdf-a3" && isPdf
+                ? await a3FromPdf(file)
+                : isPdf
+                  ? await canvasesFromPdf(file, { normalizeVectorWidth: state.mode === "pdf-svg" })
+                  : fileType === "image/svg+xml" || /\.svg$/i.test(file.name)
+                    ? await svgFromFile(file)
+                    : await canvasFromImage(file);
             for (const page of pages) {
               const item = state.mode === "pdf-svg"
                 ? makePdfSvgItem(page.label, page.canvas, page.vectorSvg)
                 : state.mode === "pdf-webp"
                   ? makePdfWebpItem(page)
+                  : state.mode === "pdf-a3"
+                    ? makePdfA3Item(page)
                   : page.kind === "svg"
                     ? makeSvgItem(page)
                     : page.vectorSvg && !canvasHasColorContent(page.canvas)
@@ -2837,6 +3104,8 @@
         els.countPill.textContent = `${count} ${count === 1 ? "archivo listo" : "archivos listos"}`;
         els.blackPill.textContent = state.mode === "pdf-svg"
           ? (count ? `${count} ${count === 1 ? "SVG generado" : "SVG generados"}` : "Sin PDFs cargados")
+          : state.mode === "pdf-a3"
+            ? (count ? `${count} ${count === 1 ? "PDF A3 limpio" : "PDFs A3 limpios"}` : "Sin PDFs cargados")
           : state.mode === "pdf-webp"
             ? (count ? `${black.toLocaleString("es")} paginas ${rasterFormatLabel()}` : "Sin PDFs cargados")
             : (black ? `${black.toLocaleString("es")} elementos negros detectados` : "Sin elementos detectados");
@@ -2868,7 +3137,7 @@
       function renderViewer(item) {
         const view = document.createElement("section");
         view.className = "document-view";
-        const ext = item.kind === "pdf-webp" ? rasterFormatLabel(item.format) : "SVG";
+        const ext = item.kind === "pdf-webp" ? rasterFormatLabel(item.format) : item.kind === "pdf-a3" ? "PDF" : "SVG";
         view.innerHTML = `
           <div class="document-head">
             <div class="document-title">
@@ -2911,6 +3180,7 @@
         if (item.kind === "pdf-webp") {
           return `Página ${item.pageNumber} de ${item.pages} - ${rasterFormatLabel(item.format)}${item.portalNexo ? ` - ${portalNexoLabel()}` : ""}`;
         }
+        if (item.kind === "pdf-a3") return `Página ${item.pageNumber} de ${item.pages} - PDF A3 sin medidas`;
         if (item.kind === "pdf-color") return "PDF vectorial convertido a color";
         if (item.kind === "pdf-svg") return "PDF convertido a SVG editable";
         if (item.kind === "svg") return "SVG vectorial";
@@ -2930,6 +3200,8 @@
             ? previewFromSvg(item.convertedSvg)
           : item.kind === "pdf-svg"
             ? previewFromSvg(item.vectorSvg)
+            : item.kind === "pdf-a3"
+              ? cloneCanvas(item.outputCanvas || item.original)
             : item.kind === "pdf-webp"
               ? previewFromWebp(item.webpUrl)
               : cloneCanvas(item.processed.converted);
@@ -3000,6 +3272,15 @@
               format: item.format,
               portalNexo: item.portalNexo,
               imageBlob: item.imageBlob || item.webpBlob,
+            });
+          }
+          if (item.kind === "pdf-a3") {
+            return makePdfA3Item({
+              label: item.name,
+              canvas: item.outputCanvas || item.original,
+              pages: item.pages,
+              pageNumber: item.pageNumber,
+              pdfBlob: item.pdfBlob,
             });
           }
           if (item.kind === "svg") {
@@ -3089,6 +3370,7 @@
       function refreshModeUi() {
         document.body.classList.toggle("mode-pdf-webp", state.mode === "pdf-webp");
         document.body.classList.toggle("mode-pdf-svg", state.mode === "pdf-svg");
+        document.body.classList.toggle("mode-pdf-a3", state.mode === "pdf-a3");
         document.body.classList.toggle("mode-morada", state.mode === "morada");
 
         for (const tab of els.tabs) {
@@ -3097,29 +3379,36 @@
           tab.setAttribute("aria-selected", String(active));
         }
 
-        const pdfMode = state.mode === "pdf-svg" || state.mode === "pdf-webp";
+        const pdfMode = state.mode === "pdf-svg" || state.mode === "pdf-webp" || state.mode === "pdf-a3";
         const webpMode = state.mode === "pdf-webp";
+        const a3Mode = state.mode === "pdf-a3";
         els.fileInput.accept = pdfMode
           ? ".pdf,application/pdf"
           : ".pdf,.jpg,.jpeg,.png,.svg,application/pdf,image/jpeg,image/png,image/svg+xml";
         els.uploadTitle.textContent = webpMode
           ? `Sube PDFs para convertir a ${rasterFormatLabel()}`
+          : a3Mode
+            ? "Sube PDFs A3 para limpiar medidas"
           : pdfMode
             ? "Sube PDFs para convertir a SVG"
             : "Sube planos PDF, JPG, PNG o SVG";
         els.uploadHint.textContent = webpMode
           ? `Cada pagina del PDF se exporta como una imagen ${rasterFormatLabel()} independiente.`
+          : a3Mode
+            ? "Elimina medidas entre parentesis como (2.75 x 3.25) sin tocar el resto del plano."
           : pdfMode
             ? "Cada pagina del PDF se exporta como un SVG independiente."
             : "Arrastra archivos o haz clic para seleccionarlos.";
-        els.exportAllText.textContent = webpMode ? `Descargar ${rasterFormatLabel()}` : "Descargar todo";
-        els.exportAllBtn.title = webpMode ? `Descargar todos los ${rasterFormatLabel()} en ZIP` : "Descargar todos los archivos en ZIP";
+        els.exportAllText.textContent = webpMode ? `Descargar ${rasterFormatLabel()}` : a3Mode ? "Descargar PDF" : "Descargar todo";
+        els.exportAllBtn.title = webpMode ? `Descargar todos los ${rasterFormatLabel()} en ZIP` : a3Mode ? "Descargar todos los PDFs limpios" : "Descargar todos los archivos en ZIP";
         els.controlsPanel.classList.toggle("is-disabled", pdfMode);
         els.rasterFormatRow.hidden = !webpMode;
         els.rasterFormatOut.textContent = rasterFormatLabel();
         els.portalNexoToggle.checked = state.settings.portalNexo;
         els.modeNote.textContent = webpMode
           ? `El PDF se renderiza con alta nitidez y cada pagina se descarga como ${rasterFormatLabel()}${state.settings.portalNexo ? ` en formato ${portalNexoLabel()}` : ""}, manteniendo la apariencia y colores originales.`
+          : a3Mode
+            ? "El PDF A3 se mantiene en formato PDF y solo se cubren las medidas dentro de parentesis, sin tocar nombres, codigos ni el resto del plano."
           : pdfMode
             ? "El PDF se convierte a SVG vectorial editable cuando el archivo conserva trazos/textos internos. Si el PDF contiene solo imagen escaneada, no hay vectores reales que extraer."
             : "Si subes SVG, se conserva como vector nativo, el dibujo visible sale en tonos morados y los trazos se normalizan a 0.5 pt. Si subes PDF/JPG/PNG, los trazos negros detectados se generan encima como formas SVG editables.";
